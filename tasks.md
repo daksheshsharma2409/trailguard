@@ -34,7 +34,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
 ## Phase 1 — Shared core
 
-- [ ] **T1.1 [MVP] Errors**
+- [x] **T1.1 [MVP] Errors**
   - dep: T0.1 · files: `src/core/errors.ts`, `test/unit/errors.test.ts`
   - Do: hierarchy from `context.md §7.11` with `code` string field; `instanceof` works after build.
   - Accept: each error class has name, code, message; unit test covers inheritance.
