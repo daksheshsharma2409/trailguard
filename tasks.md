@@ -21,7 +21,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: init ESM TS project per `context.md §2`; scripts `build`, `dev`, `test`, `test:int`, `lint`, `typecheck`; `exports` map for `.` and `./scan`; `bin/trailguard.js` shim; empty `src/index.ts`, `src/scan/index.ts`, `src/cli.ts`.
   - Accept: `npm run build` emits `dist/index.js`, `dist/scan/index.js`, `dist/cli.js` + `.d.ts`; `node bin/trailguard.js --version` prints version; `npm run typecheck` passes with strict flags.
 
-- [ ] **T0.2 [MVP] CI + docker-compose**
+- [x] **T0.2 [MVP] CI + docker-compose**
   - dep: T0.1 · files: `.github/workflows/ci.yml`, `docker-compose.yml`
   - Do: CI matrix Node 18/20/22 running lint, typecheck, unit tests; separate job with MySQL 8 service for `test:int`. `docker-compose.yml` exposes MySQL on 3307 (user root/root, db `trailguard_test`).
   - Accept: workflow YAML valid; `docker compose up -d` gives a reachable MySQL.
