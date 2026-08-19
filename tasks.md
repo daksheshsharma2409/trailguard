@@ -26,7 +26,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: CI matrix Node 18/20/22 running lint, typecheck, unit tests; separate job with MySQL 8 service for `test:int`. `docker-compose.yml` exposes MySQL on 3307 (user root/root, db `trailguard_test`).
   - Accept: workflow YAML valid; `docker compose up -d` gives a reachable MySQL.
 
-- [ ] **T0.3 [MVP] Docs skeleton**
+- [x] **T0.3 [MVP] Docs skeleton**
   - dep: T0.1 · files: `docs/DECISIONS.md`, `docs/THREAT_MODEL.md`, `docs/ARCHITECTURE.md`, `README.md` (stub), `CHANGELOG.md`
   - Accept: files exist; DECISIONS has an entry template; README contains the positioning line and a "Limitations" heading.
 
