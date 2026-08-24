@@ -39,7 +39,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: hierarchy from `context.md §7.11` with `code` string field; `instanceof` works after build.
   - Accept: each error class has name, code, message; unit test covers inheritance.
 
-- [ ] **T1.2 [MVP] Constants + types**
+- [x] **T1.2 [MVP] Constants + types**
   - dep: T1.1 · files: `src/core/constants.ts`, `src/core/types.ts`
   - Do: `GENESIS_HASH`, `PAYLOAD_VERSION=1`, table names, shared types from `context.md §10`.
   - Accept: typechecks; types re-exported from `src/index.ts` / `src/scan/index.ts` appropriately.

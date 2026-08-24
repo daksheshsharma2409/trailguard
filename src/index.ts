@@ -18,6 +18,22 @@ export {
   ScanParseError,
 } from './core/errors.js';
 
+// Core constants re-exported for consumers
+export {
+  GENESIS_HASH,
+  PAYLOAD_VERSION,
+  AUDIT_LOG_TABLE,
+  AUDIT_HEAD_TABLE,
+  AUDIT_HEAD_ID,
+  DEFAULT_KEY_ENV,
+  DEFAULT_KEY_ID,
+  MAX_PAGE_SIZE,
+  VERIFY_BATCH_SIZE,
+  DEFAULT_MAX_BULK_ROWS,
+  CHECKPOINT_SIG_PREFIX,
+} from './core/constants.js';
+
+
 // Core types re-exported for consumers
 export type {
   AuditContext,
