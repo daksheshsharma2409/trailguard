@@ -44,7 +44,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `GENESIS_HASH`, `PAYLOAD_VERSION=1`, table names, shared types from `context.md §10`.
   - Accept: typechecks; types re-exported from `src/index.ts` / `src/scan/index.ts` appropriately.
 
-- [ ] **T1.3 [MVP] Canonical stringify**
+- [x] **T1.3 [MVP] Canonical stringify**
   - dep: T1.1 · files: `src/core/canonical.ts`, `test/unit/canonical.test.ts`
   - Do: per `context.md §7.3`.
   - Accept: key-order permutation invariance (property-style test with random objects); BigInt/Date/Buffer handled; `undefined` omitted, `null` kept; throws `AuditWriteError` on NaN/Infinity/cycles/functions; output has no whitespace.
