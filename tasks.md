@@ -49,7 +49,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: per `context.md §7.3`.
   - Accept: key-order permutation invariance (property-style test with random objects); BigInt/Date/Buffer handled; `undefined` omitted, `null` kept; throws `AuditWriteError` on NaN/Infinity/cycles/functions; output has no whitespace.
 
-- [ ] **T1.4 [MVP] Crypto helpers**
+- [x] **T1.4 [MVP] Crypto helpers**
   - dep: T1.3 · files: `src/core/crypto.ts`, `test/unit/crypto.test.ts`
   - Do: `hmacHex(key, data)`, `deriveKey(key, label)`, `timingSafeEqualHex(a,b)` using `node:crypto`.
   - Accept: known HMAC-SHA256 test vectors pass; `timingSafeEqualHex` returns false for different lengths without throwing.
