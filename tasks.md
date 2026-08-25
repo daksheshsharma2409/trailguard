@@ -54,7 +54,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `hmacHex(key, data)`, `deriveKey(key, label)`, `timingSafeEqualHex(a,b)` using `node:crypto`.
   - Accept: known HMAC-SHA256 test vectors pass; `timingSafeEqualHex` returns false for different lengths without throwing.
 
-- [ ] **T1.5 [MVP] Config schema + loader**
+- [x] **T1.5 [MVP] Config schema + loader**
   - dep: T1.1 · files: `src/config/schema.ts`, `src/config/load.ts`, `test/unit/config.test.ts`
   - Do: zod schema per `context.md §9` (`.strict()`), `defineConfig`, `loadConfig(path?)` using `jiti` for `.ts/.js/.mjs`, plus `.json`; auto-discover `trailguard.config.{ts,js,mjs,json}` from cwd upward; resolve relative paths against config dir; apply defaults.
   - Accept: valid TS config loads; unknown key → `ScanConfigError` naming the key path; missing file → `ScanConfigError`; defaults present (`ownerFields`, `clientNames`, etc.).

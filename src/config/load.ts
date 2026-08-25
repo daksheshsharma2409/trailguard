@@ -1,5 +1,5 @@
 /**
- * Config loader — discovers and loads trailguard.config.{ts,js,mjs,json}
+ * Config loader — discovers and loads trailguard.config.{ts,js,mjs,cjs,json}
  * using jiti (so .ts configs work without compiling first).
  *
  * @see context.md §9
@@ -7,13 +7,14 @@
 
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { ConfigSchema, type Config, type UserConfig } from './schema.js';
+import { ConfigSchema, type Config } from './schema.js';
 import { ScanConfigError } from '../core/errors.js';
 
 const CONFIG_NAMES = [
   'trailguard.config.ts',
   'trailguard.config.js',
   'trailguard.config.mjs',
+  'trailguard.config.cjs',
   'trailguard.config.json',
 ];
 
@@ -21,8 +22,8 @@ const CONFIG_NAMES = [
  * Find the config file by searching from `startDir` upward to the filesystem root.
  * Returns the absolute path of the first match, or `undefined` if not found.
  */
-function findConfigFile(startDir: string): string | undefined {
-  let dir = startDir;
+export function findConfigFile(startDir: string): string | undefined {
+  let dir = path.resolve(startDir);
   for (;;) {
     for (const name of CONFIG_NAMES) {
       const candidate = path.join(dir, name);
@@ -42,31 +43,60 @@ function findConfigFile(startDir: string): string | undefined {
 /**
  * Resolve relative paths inside the config against the config file's directory.
  */
-function resolveConfigPaths(raw: UserConfig, configDir: string): UserConfig {
-  const resolve = (p: string) => (path.isAbsolute(p) ? p : path.resolve(configDir, p));
+function resolveConfigPaths(
+  raw: Record<string, unknown>,
+  configDir: string,
+): Record<string, unknown> {
+  const resolve = (p: unknown) =>
+    typeof p === 'string' ? (path.isAbsolute(p) ? p : path.resolve(configDir, p)) : p;
 
-  return {
-    ...raw,
-    entry: raw.entry.map(resolve),
-    tsconfig: raw.tsconfig !== undefined ? resolve(raw.tsconfig) : undefined,
-    prismaSchema: raw.prismaSchema !== undefined ? resolve(raw.prismaSchema) : undefined,
-    baseline: raw.baseline !== undefined ? resolve(raw.baseline) : undefined,
-  };
+  const result: Record<string, unknown> = { ...raw };
+
+  if (Array.isArray(raw.entry)) {
+    result.entry = raw.entry.map(resolve);
+  }
+
+  if (typeof raw.tsconfig === 'string') {
+    result.tsconfig = resolve(raw.tsconfig);
+  } else if (raw.tsconfig === undefined) {
+    result.tsconfig = path.resolve(configDir, './tsconfig.json');
+  }
+
+  if (typeof raw.prismaSchema === 'string') {
+    result.prismaSchema = resolve(raw.prismaSchema);
+  } else if (raw.prismaSchema === undefined) {
+    result.prismaSchema = path.resolve(configDir, './prisma/schema.prisma');
+  }
+
+  if (typeof raw.baseline === 'string') {
+    result.baseline = resolve(raw.baseline);
+  }
+
+  if (
+    raw.checkpoints !== null &&
+    typeof raw.checkpoints === 'object' &&
+    'file' in raw.checkpoints &&
+    typeof (raw.checkpoints as Record<string, unknown>).file === 'string'
+  ) {
+    result.checkpoints = {
+      ...(raw.checkpoints as Record<string, unknown>),
+      file: resolve((raw.checkpoints as Record<string, unknown>).file),
+    };
+  }
+
+  return result;
 }
 
 /** jiti v1 factory type: (callerFile, opts) → require-like function */
 type JitiV1Factory = (callerFile: string, opts?: Record<string, unknown>) => (id: string) => unknown;
 
 /**
- * Load a TS/JS/MJS config file using jiti v1.
+ * Load a TS/JS/MJS/CJS config file using jiti v1.
  * jiti v1 exports: `module.exports = function jiti(filename, opts) { return requireFn; }`
  */
 async function loadViaJiti(filePath: string): Promise<unknown> {
-  // Dynamic import of jiti; the default export is the factory in v1
   const mod: unknown = await import('jiti');
 
-  // In jiti v1 with CJS, the module has a `.default` pointing to the factory function
-  // In some ESM interop scenarios, the module itself is the function
   let factory: JitiV1Factory | undefined;
 
   if (typeof mod === 'function') {
@@ -85,6 +115,7 @@ async function loadViaJiti(filePath: string): Promise<unknown> {
   const requireLike = factory(filePath, {
     interopDefault: true,
     requireCache: false,
+    esmResolve: true,
   });
 
   return requireLike(filePath);
@@ -132,7 +163,7 @@ export async function loadConfig(configPath?: string): Promise<Config> {
       });
     }
   } else {
-    // TS / JS / MJS: use jiti to execute without compiling
+    // TS / JS / MJS / CJS: use jiti to execute without compiling
     try {
       rawExport = await loadViaJiti(resolvedPath);
     } catch (err) {
@@ -151,16 +182,29 @@ export async function loadConfig(configPath?: string): Promise<Config> {
       ? (rawExport as { default: unknown }).default
       : rawExport;
 
-  // Resolve relative paths before validation.
-  // We cast to UserConfig here since safeParse will validate the shape.
-  const configWithPaths = resolveConfigPaths(rawConfig as UserConfig, configDir);
+  if (rawConfig === null || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) {
+    throw new ScanConfigError(
+      `Config file did not export a configuration object: ${resolvedPath}`,
+      { filePath: resolvedPath },
+    );
+  }
 
+  // Resolve relative paths before validation.
+  const configWithPaths = resolveConfigPaths(rawConfig as Record<string, unknown>, configDir);
 
   // Validate with zod
   const result = ConfigSchema.safeParse(configWithPaths);
   if (!result.success) {
     const issues = result.error.issues
-      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .map((i) => {
+        let fullPath = i.path.join('.');
+        if (i.code === 'unrecognized_keys') {
+          const unknownKeys = (i as unknown as { keys: string[] }).keys.join(', ');
+          fullPath = fullPath ? `${fullPath}.${unknownKeys}` : unknownKeys;
+          return `  - unknown key "${fullPath}": ${i.message}`;
+        }
+        return `  - ${fullPath || 'root'}: ${i.message}`;
+      })
       .join('\n');
     throw new ScanConfigError(
       `Invalid trailguard config at ${resolvedPath}:\n${issues}`,

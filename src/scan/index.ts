@@ -33,9 +33,9 @@ export type {
 } from '../core/types.js';
 
 // Config
-export { defineConfig } from '../config/schema.js';
-export { loadConfig } from '../config/load.js';
-export type { Config } from '../config/schema.js';
+export { defineConfig, ConfigSchema } from '../config/schema.js';
+export { loadConfig, findConfigFile } from '../config/load.js';
+export type { Config, UserConfig } from '../config/schema.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';
