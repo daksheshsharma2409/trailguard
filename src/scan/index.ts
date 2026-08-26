@@ -37,6 +37,9 @@ export { defineConfig, ConfigSchema } from '../config/schema.js';
 export { loadConfig, findConfigFile } from '../config/load.js';
 export type { Config, UserConfig } from '../config/schema.js';
 
+// Static analysis core
+export { createProject } from './project.js';
+
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';
 // export { deriveMatrix } from './matrix.js';

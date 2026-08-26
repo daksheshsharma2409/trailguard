@@ -1,0 +1,14 @@
+{
+  "findings": [],
+  "exitCode": 0,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "method": "POST",
+      "path": "/api/items"
+    }
+  ]
+}

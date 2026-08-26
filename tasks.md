@@ -63,7 +63,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
 ## Phase 2 — Static analysis core
 
-- [ ] **T2.1 [MVP] ts-morph project + fixture harness**
+- [x] **T2.1 [MVP] ts-morph project + fixture harness**
   - dep: T1.5 · files: `src/scan/project.ts`, `test/fixtures/README.md`, `test/helpers/fixture.ts`
   - Do: `createProject({entry, tsconfig, ignore})` adding entry files and following imports; support `.ts` and `.js` (`allowJs`). Test helper that loads `test/fixtures/<name>` with its own `trailguard.config.ts` + `expected.json`.
   - Accept: loads a fixture entry and its transitively imported files; ignores globs; missing entry → `ScanConfigError`.
