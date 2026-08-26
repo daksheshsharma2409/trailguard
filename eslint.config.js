@@ -57,6 +57,7 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'node_modules/**',
+      'test/fixtures/**',
       'test/integration/generated/**',
       '*.js',
       '*.mjs',

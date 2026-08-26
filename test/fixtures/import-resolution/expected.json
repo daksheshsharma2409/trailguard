@@ -1,0 +1,12 @@
+{
+  "findings": [],
+  "exitCode": 0,
+  "routes": [
+    { "method": "GET", "path": "/api/posts" },
+    { "method": "POST", "path": "/api/posts" },
+    { "method": "GET", "path": "/api/users/:id" },
+    { "method": "POST", "path": "/api/auth/login" },
+    { "method": "GET", "path": "/api/health" },
+    { "method": "GET", "path": "/api/external" }
+  ]
+}

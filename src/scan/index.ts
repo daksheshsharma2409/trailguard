@@ -53,6 +53,14 @@ export type {
   ExtractedPath,
   FileRoutesResult,
 } from './routes.js';
+export {
+  resolveHandler,
+  resolveRouter,
+  ResolutionContext,
+  getRootSymbol,
+  resolveModuleSourceFile,
+} from './handlers.js';
+export type { ResolvedHandler, ResolvedRouter } from './handlers.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';

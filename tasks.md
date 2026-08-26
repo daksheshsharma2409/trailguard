@@ -73,7 +73,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.2`. Track app/router by symbol. Support verbs + `all`, arrays of middleware, `router.route().get().patch()` chains, `use()` with/without path, template-literal paths.
   - Accept: unit tests over fixtures assert method, raw path, middleware arg text, handler arg, and `order` for every call shape listed in §6.2.
 
-- [ ] **T2.3 [MVP] Import/handler resolution**
+- [x] **T2.3 [MVP] Import/handler resolution**
   - dep: T2.2 · files: `src/scan/handlers.ts`, fixture `import-resolution`
   - Do: resolve imported routers (named, default, aliased, re-exported, `require`) and handler references (`fn`, `controller.method`, class static/instance member) to declarations; cache by symbol.
   - Accept: fixture proves each import style resolves; unresolvable handler returns `{resolved:false}` without throwing.
