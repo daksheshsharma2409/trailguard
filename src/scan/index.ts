@@ -61,6 +61,19 @@ export {
   resolveModuleSourceFile,
 } from './handlers.js';
 export type { ResolvedHandler, ResolvedRouter } from './handlers.js';
+export {
+  normalizePath,
+  matchesPrefix,
+  buildMountGraph,
+  composeMounts,
+} from './mounts.js';
+export type {
+  MountEdge,
+  RouterInfo,
+  ComposedRoute,
+  MountGraph,
+  MountCompositionResult,
+} from './mounts.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';

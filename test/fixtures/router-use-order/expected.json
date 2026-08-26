@@ -1,0 +1,14 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/items/:id",
+      "middleware": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/items/:id",
+      "middleware": ["authenticate"]
+    }
+  ]
+}

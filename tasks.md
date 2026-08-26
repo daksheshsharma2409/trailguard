@@ -78,7 +78,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: resolve imported routers (named, default, aliased, re-exported, `require`) and handler references (`fn`, `controller.method`, class static/instance member) to declarations; cache by symbol.
   - Accept: fixture proves each import style resolves; unresolvable handler returns `{resolved:false}` without throwing.
 
-- [ ] **T2.4 [MVP] Mount composition + effective middleware chain**
+- [x] **T2.4 [MVP] Mount composition + effective middleware chain**
   - dep: T2.2, T2.3 · files: `src/scan/mounts.ts`, fixtures `nested-routers`, `router-use-order`, `dynamic-mount`
   - Do: `context.md §6.3` including ordering, cycle detection, dynamic mounts → `:dynamic` + `confidence:'low'`, path normalization.
   - Accept: `/api/v1` + `/posts` + `/:id` composes correctly (3 levels deep); app-level `use(authenticate)` before a mount protects children; `router.use(authenticate)` placed **after** a route does not; a cycle terminates with a warning; dynamic mount marks confidence low.

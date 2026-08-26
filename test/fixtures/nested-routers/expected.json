@@ -1,0 +1,14 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/v1/posts/:id",
+      "middleware": ["authenticate"]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/posts",
+      "middleware": ["authenticate"]
+    }
+  ]
+}

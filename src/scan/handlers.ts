@@ -321,6 +321,46 @@ export function resolveHandler(
 }
 
 /**
+ * Check if a declaration represents an Express router or app.
+ */
+export function isRouterDeclaration(decl: Node): boolean {
+  if (Node.isVariableDeclaration(decl)) {
+    const rawInit = decl.getInitializer();
+    if (rawInit) {
+      const init = unwrapExpression(rawInit);
+      if (Node.isArrowFunction(init) || Node.isFunctionExpression(init)) {
+        return false;
+      }
+      if (Node.isCallExpression(init)) {
+        const text = init.getExpression().getText();
+        if (
+          text === 'Router' ||
+          text.endsWith('.Router') ||
+          text === 'express' ||
+          text.endsWith('.express')
+        ) {
+          return true;
+        }
+      }
+    }
+    const typeText = decl.getType().getText();
+    if (
+      typeText.includes('Router') ||
+      typeText.includes('Express') ||
+      typeText.includes('Application') ||
+      typeText.includes('IRouter')
+    ) {
+      return true;
+    }
+    const name = decl.getName();
+    if (name === 'router' || name.endsWith('Router') || name === 'app' || name.endsWith('App')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Resolve a router node or variable to its declaration.
  *
  * Handles:
@@ -388,6 +428,11 @@ export function resolveRouter(
                 }
               }
             }
+          }
+
+          // Check if variable declaration actually holds a router
+          if (!isRouterDeclaration(decl)) {
+            continue;
           }
 
           const res: ResolvedRouter = {
