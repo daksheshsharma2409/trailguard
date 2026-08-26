@@ -1,0 +1,14 @@
+{
+  "findings": [],
+  "exitCode": 0,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/:id"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/:id"
+    }
+  ]
+}

@@ -68,7 +68,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `createProject({entry, tsconfig, ignore})` adding entry files and following imports; support `.ts` and `.js` (`allowJs`). Test helper that loads `test/fixtures/<name>` with its own `trailguard.config.ts` + `expected.json`.
   - Accept: loads a fixture entry and its transitively imported files; ignores globs; missing entry → `ScanConfigError`.
 
-- [ ] **T2.2 [MVP] Route extraction**
+- [x] **T2.2 [MVP] Route extraction**
   - dep: T2.1 · files: `src/scan/routes.ts`, fixtures `route-chain`, `clean`
   - Do: `context.md §6.2`. Track app/router by symbol. Support verbs + `all`, arrays of middleware, `router.route().get().patch()` chains, `use()` with/without path, template-literal paths.
   - Accept: unit tests over fixtures assert method, raw path, middleware arg text, handler arg, and `order` for every call shape listed in §6.2.

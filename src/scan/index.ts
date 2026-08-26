@@ -39,6 +39,20 @@ export type { Config, UserConfig } from '../config/schema.js';
 
 // Static analysis core
 export { createProject } from './project.js';
+export {
+  extractRoutes,
+  extractRoutesFromProject,
+  HTTP_METHODS,
+  isPathArg,
+  extractPathFromNode,
+  flattenArgs,
+} from './routes.js';
+export type {
+  ExtractedRoute,
+  ExtractedUse,
+  ExtractedPath,
+  FileRoutesResult,
+} from './routes.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';
