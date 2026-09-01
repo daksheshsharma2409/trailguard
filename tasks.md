@@ -83,7 +83,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.3` including ordering, cycle detection, dynamic mounts → `:dynamic` + `confidence:'low'`, path normalization.
   - Accept: `/api/v1` + `/posts` + `/:id` composes correctly (3 levels deep); app-level `use(authenticate)` before a mount protects children; `router.use(authenticate)` placed **after** a route does not; a cycle terminates with a warning; dynamic mount marks confidence low.
 
-- [ ] **T2.5 [MVP] Middleware classification**
+- [x] **T2.5 [MVP] Middleware classification**
   - dep: T2.4 · files: `src/scan/classify.ts`, fixtures `unknown-mw`
   - Do: `context.md §6.4`, all three extractors, neutral list, inline-function body analysis.
   - Accept: table-driven unit tests for every row of the classification table; unknown is never classified as auth/role; `express.json()` is `neutral`.

@@ -74,6 +74,15 @@ export type {
   MountGraph,
   MountCompositionResult,
 } from './mounts.js';
+export {
+  classifyMiddleware,
+  classifySingleMiddleware,
+  extractRoleArgs,
+  mentionsUserRole,
+  isNeutralMiddleware,
+  KNOWN_NEUTRAL_MIDDLEWARE,
+} from './classify.js';
+export type { RoleExtractionResult, ClassificationConfig } from './classify.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';

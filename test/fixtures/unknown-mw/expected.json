@@ -1,0 +1,18 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/data",
+      "middleware": [
+        {
+          "name": "express.json",
+          "kind": "neutral"
+        },
+        {
+          "name": "customTelemetry",
+          "kind": "unknown"
+        }
+      ]
+    }
+  ]
+}
