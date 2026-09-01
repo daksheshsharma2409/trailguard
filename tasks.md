@@ -88,7 +88,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.4`, all three extractors, neutral list, inline-function body analysis.
   - Accept: table-driven unit tests for every row of the classification table; unknown is never classified as auth/role; `express.json()` is `neutral`.
 
-- [ ] **T2.6 [MVP] Prisma schema parser**
+- [x] **T2.6 [MVP] Prisma schema parser**
   - dep: T1.2 · files: `src/scan/prisma-schema.ts`, `test/unit/prisma-schema.test.ts`
   - Do: `context.md §6.5`.
   - Accept: parses models, optional/list fields, `@id`, `@unique`, `@relation`, `@@map`, comments; detects owner fields; malformed input throws `ScanConfigError` with line number.

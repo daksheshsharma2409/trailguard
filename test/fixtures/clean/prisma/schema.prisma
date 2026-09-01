@@ -1,0 +1,7 @@
+
+      model Student {
+        id        String @id
+        authorId  String
+        name      String
+      }
+      

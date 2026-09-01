@@ -83,6 +83,18 @@ export {
   KNOWN_NEUTRAL_MIDDLEWARE,
 } from './classify.js';
 export type { RoleExtractionResult, ClassificationConfig } from './classify.js';
+export {
+  parsePrismaSchema,
+  loadPrismaSchema,
+  stripComments,
+  DEFAULT_OWNER_FIELDS,
+} from './prisma-schema.js';
+export type {
+  PrismaField,
+  PrismaModel,
+  PrismaSchemaResult,
+  RelationInfo,
+} from './prisma-schema.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';

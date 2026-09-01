@@ -62,17 +62,19 @@ export class AuditWriteError extends TrailguardError {
   }
 }
 
-/** Thrown when a scan configuration file is invalid or missing. */
+/** Thrown when a scan configuration file is invalid or missing, or schema parse failure. */
 export class ScanConfigError extends TrailguardError {
   readonly filePath?: string;
+  readonly lineNumber?: number;
 
   constructor(
     message: string,
-    options?: { filePath?: string; cause?: unknown },
+    options?: { filePath?: string; lineNumber?: number; cause?: unknown },
   ) {
     super('SCAN_CONFIG_ERROR', message, { cause: options?.cause });
     this.name = 'ScanConfigError';
     if (options?.filePath !== undefined) this.filePath = options.filePath;
+    if (options?.lineNumber !== undefined) this.lineNumber = options.lineNumber;
   }
 }
 
