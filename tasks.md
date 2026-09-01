@@ -93,7 +93,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.5`.
   - Accept: parses models, optional/list fields, `@id`, `@unique`, `@relation`, `@@map`, comments; detects owner fields; malformed input throws `ScanConfigError` with line number.
 
-- [ ] **T2.7 [MVP] Resource mapping**
+- [x] **T2.7 [MVP] Resource mapping**
   - dep: T2.4, T2.6 · files: `src/scan/resources.ts`
   - Do: `context.md §6.6` (config longest-prefix, then heuristic singularization).
   - Accept: `/api/v1/students/:id` → `Student` (heuristic); config override wins; unmatched → `null`; `source` recorded.

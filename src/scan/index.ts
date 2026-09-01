@@ -95,6 +95,13 @@ export type {
   PrismaSchemaResult,
   RelationInfo,
 } from './prisma-schema.js';
+export {
+  mapResource,
+  singularize,
+  toPascalCase,
+  extractResourceSegment,
+} from './resources.js';
+export type { ResourceMapping } from './resources.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';
