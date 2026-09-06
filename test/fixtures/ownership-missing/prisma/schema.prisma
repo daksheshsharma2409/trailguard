@@ -1,0 +1,14 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  authorId  String
+}

@@ -102,6 +102,11 @@ export {
   extractResourceSegment,
 } from './resources.js';
 export type { ResourceMapping } from './resources.js';
+export {
+  checkOwnershipHeuristic,
+  DEFAULT_OWNERSHIP_SIGNALS,
+} from './ownership.js';
+export type { OwnershipResult, OwnershipOptions } from './ownership.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';

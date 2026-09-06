@@ -98,7 +98,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.6` (config longest-prefix, then heuristic singularization).
   - Accept: `/api/v1/students/:id` → `Student` (heuristic); config override wins; unmatched → `null`; `source` recorded.
 
-- [ ] **T2.8 [MVP] Ownership heuristic**
+- [x] **T2.8 [MVP] Ownership heuristic**
   - dep: T2.3, T2.6 · files: `src/scan/ownership.ts`, fixtures `ownership-ok`, `ownership-missing`
   - Do: `context.md §6.7`.
   - Accept: `where: { id, authorId: req.user.id }` → `probable`; handler without signals → `none`; unresolved handler → `unknown`.

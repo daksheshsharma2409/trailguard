@@ -1,0 +1,9 @@
+{
+  "routes": [
+    {
+      "method": "DELETE",
+      "path": "/api/posts/:id",
+      "ownership": "probable"
+    }
+  ]
+}
