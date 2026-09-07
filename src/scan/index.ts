@@ -107,6 +107,21 @@ export {
   DEFAULT_OWNERSHIP_SIGNALS,
 } from './ownership.js';
 export type { OwnershipResult, OwnershipOptions } from './ownership.js';
+export {
+  computeRouteFingerprint,
+  computeWriteFingerprint,
+  resolveEffectiveRisk,
+  buildRouteNodes,
+} from './findings.js';
+export type { Rule, RuleContext } from './findings.js';
+export {
+  runRules,
+  DEFAULT_RULES,
+  rbac001,
+  rbac002,
+  rbac005,
+  rbac007,
+} from './rules/index.js';
 
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';

@@ -51,16 +51,16 @@ export interface RouteNode {
   chain: MiddlewareRef[];
   handler?: {
     name: string;
-    file?: string;
-    line?: number;
+    file?: string | undefined;
+    line?: number | undefined;
     resolved: boolean;
-  };
+  } | undefined;
   file: string;
   line: number;
   resource?: {
     model: string | null;
     source: 'config' | 'heuristic';
-  };
+  } | undefined;
   ownership: 'probable' | 'none' | 'unknown';
 }
 
@@ -90,18 +90,18 @@ export interface Finding {
   route?: {
     method: string;
     path: string;
-    handler?: string;
-  };
+    handler?: string | undefined;
+  } | undefined;
   resource?: {
     model: string | null;
     source: 'config' | 'heuristic';
-  };
+  } | undefined;
   /**
    * Stable fingerprint — no line numbers so it survives unrelated edits.
    * sha256(ruleId|method|composedPath) or (ruleId|relativeFile|model.op|enclosingFn)
    */
   fingerprint: string;
-  suppressed?: boolean;
+  suppressed?: boolean | undefined;
 }
 
 // ── Scan result ─────────────────────────────────────────────────────────────
@@ -124,11 +124,11 @@ export interface ScanResult {
 // ── Audit context ───────────────────────────────────────────────────────────
 
 export interface AuditContext {
-  requestId?: string;
-  actorId?: string;
-  actorRole?: string;
-  ipAddress?: string;
-  userAgent?: string;
+  requestId?: string | undefined;
+  actorId?: string | undefined;
+  actorRole?: string | undefined;
+  ipAddress?: string | undefined;
+  userAgent?: string | undefined;
 }
 
 // ── Audit entry (what gets stored) ─────────────────────────────────────────

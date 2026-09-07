@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "ruleId": "RBAC002",
+      "method": "DELETE",
+      "path": "/api/posts/:id"
+    }
+  ]
+}

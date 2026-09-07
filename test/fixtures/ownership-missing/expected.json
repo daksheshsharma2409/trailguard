@@ -1,4 +1,16 @@
 {
+  "findings": [
+    {
+      "ruleId": "RBAC002",
+      "method": "DELETE",
+      "path": "/api/posts/:id"
+    },
+    {
+      "ruleId": "RBAC005",
+      "method": "DELETE",
+      "path": "/api/posts/:id"
+    }
+  ],
   "routes": [
     {
       "method": "DELETE",

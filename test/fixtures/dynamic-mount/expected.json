@@ -1,4 +1,11 @@
 {
+  "findings": [
+    {
+      "ruleId": "RBAC007",
+      "method": "GET",
+      "path": "/api/:dynamic/:id"
+    }
+  ],
   "routes": [
     {
       "method": "GET",

@@ -103,7 +103,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.7`.
   - Accept: `where: { id, authorId: req.user.id }` → `probable`; handler without signals → `none`; unresolved handler → `unknown`.
 
-- [ ] **T2.9 [MVP] Findings model, rule registry, RBAC rules**
+- [x] **T2.9 [MVP] Findings model, rule registry, RBAC rules**
   - dep: T2.5, T2.7, T2.8 · files: `src/scan/findings.ts`, `src/scan/rules/index.ts`, `rbac001.ts`, `rbac002.ts`, `rbac005.ts`, `rbac007.ts`
   - Do: `Finding`, fingerprints (no line numbers), risk override via config, precedence (`RBAC001` suppresses `RBAC002` for same route).
   - Accept: fixtures `missing-auth`, `auth-no-role`, `ownership-missing`, `dynamic-mount`, `clean` produce exactly the expected rule IDs; fingerprint unchanged when unrelated lines are added above the route (test).

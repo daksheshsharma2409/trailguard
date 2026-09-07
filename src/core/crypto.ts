@@ -6,7 +6,17 @@
  * @see context.md §7.3, §7.4
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, createHash, timingSafeEqual } from 'node:crypto';
+
+/**
+ * Compute SHA-256 hash over `data`, returning a lowercase hex string.
+ *
+ * @param data - The data to hash (string or Buffer).
+ * @returns 64-character lowercase hex string.
+ */
+export function sha256Hex(data: string | Buffer): string {
+  return createHash('sha256').update(data).digest('hex');
+}
 
 /**
  * Compute HMAC-SHA256 over `data` using `key`, returning a lowercase hex string.
