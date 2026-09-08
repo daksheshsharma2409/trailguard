@@ -112,7 +112,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - dep: T2.9 · files: `rbac003.ts`, `rbac004.ts`, `rbac006.ts`, `rbac008.ts`
   - Accept: fixtures for each; `RBAC006` ignores `neutral` middleware.
 
-- [ ] **T2.11 [MVP] Baseline**
+- [x] **T2.11 [MVP] Baseline**
   - dep: T2.9 · files: `src/scan/findings.ts` (baseline part), fixture `baseline`
   - Do: `context.md §6.11`; `--update-baseline` rewrite.
   - Accept: baselined finding is `suppressed`, excluded from exit threshold, counted in stats; update writes sorted, stable JSON.

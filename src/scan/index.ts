@@ -112,8 +112,19 @@ export {
   computeWriteFingerprint,
   resolveEffectiveRisk,
   buildRouteNodes,
+  BaselineEntrySchema,
+  BaselineFileSchema,
+  parseBaseline,
+  loadBaseline,
+  applyBaseline,
+  generateBaseline,
+  formatBaseline,
+  writeBaseline,
+  isThresholdExceeded,
+  calculateScanStats,
+  RISK_LEVELS,
 } from './findings.js';
-export type { Rule, RuleContext } from './findings.js';
+export type { Rule, RuleContext, BaselineEntry, BaselineFile } from './findings.js';
 export {
   runRules,
   DEFAULT_RULES,

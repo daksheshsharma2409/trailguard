@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "fingerprint": "f28a6337ed44dc8a6883172bd4275259957f3112e64ac5168b473cb2b81db9c9",
+      "ruleId": "RBAC001",
+      "note": "Legacy delete endpoint without auth"
+    }
+  ]
+}
