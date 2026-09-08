@@ -134,7 +134,14 @@ export {
   rbac007,
 } from './rules/index.js';
 
+export {
+  deriveMatrix,
+  methodToActions,
+  MATRIX_DISCLAIMER,
+  MATRIX_ACTIONS,
+} from './matrix.js';
+
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';
-// export { deriveMatrix } from './matrix.js';
 // export { drift } from './drift.js';
+

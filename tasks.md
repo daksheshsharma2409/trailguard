@@ -117,7 +117,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.11`; `--update-baseline` rewrite.
   - Accept: baselined finding is `suppressed`, excluded from exit threshold, counted in stats; update writes sorted, stable JSON.
 
-- [ ] **T2.12 [MVP] Matrix derivation**
+- [x] **T2.12 [MVP] Matrix derivation**
   - dep: T2.9 · files: `src/scan/matrix.ts`, `test/unit/matrix.test.ts`
   - Do: `context.md §6.9`.
   - Accept: unit tests for anonymous, any-authenticated, role union, ownership `own`, `uncertain` propagation; verb→action mapping correct.
