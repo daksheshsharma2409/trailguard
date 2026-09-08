@@ -1,0 +1,112 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Markdown reporter - Snapshot tests on 3 fixtures > generates expected snapshot for baseline fixture (suppressed findings) 1`] = `
+"# Trailguard Scan Report
+
+- **Tool version:** trailguard v0.1.0
+- **Config:** \`test/fixtures/baseline/trailguard.config.ts\`
+
+> ⚠️ **Note:** This report is derived statically from route and middleware declarations. It does not execute handlers or prove runtime safety.
+
+## Summary
+
+- **Routes:** 1 total (0 protected, 1 unprotected)
+- **Findings by Risk:** High: 0, Medium: 0, Low: 0
+- **Suppressed (baselined):** 1
+
+## RBAC Access Matrix
+
+*This matrix is derived statically from middleware declarations. It does not execute your handlers.*
+
+_No resources mapped._
+
+## Findings
+
+| # | Risk | Rule | Route/Location | Auth | Role | Ownership | Resource | Handler | Confidence |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | HIGH (suppressed) | RBAC001 | DELETE /api/posts/:id | no | - | none | - | (anonymous) | high |
+
+## Limitations
+
+1. **Static analysis is heuristic:** dynamic routes, spread middleware, runtime-registered routes, and aliased clients can be missed or marked low-confidence.
+2. **Ownership is probable, never proven:** static heuristics detect code patterns, not runtime guarantees.
+3. **The matrix is derived from declarations:** it does not execute handlers.
+4. **Audit chain is tamper-evident, not tamper-proof:** the application holds HMAC keys; external checkpoints are required to detect truncation.
+5. **Audited writes serialize on one head row:** creates a throughput ceiling under extreme concurrency.
+
+"
+`;
+
+exports[`Markdown reporter - Snapshot tests on 3 fixtures > generates expected snapshot for clean fixture 1`] = `
+"# Trailguard Scan Report
+
+- **Tool version:** trailguard v0.1.0
+- **Config:** \`test/fixtures/clean/trailguard.config.ts\`
+
+> ⚠️ **Note:** This report is derived statically from route and middleware declarations. It does not execute handlers or prove runtime safety.
+
+## Summary
+
+- **Routes:** 2 total (1 protected, 1 unprotected)
+- **Findings by Risk:** High: 0, Medium: 0, Low: 0
+- **Suppressed (baselined):** 0
+
+## RBAC Access Matrix
+
+*This matrix is derived statically from middleware declarations. It does not execute your handlers.*
+
+| Resource | Create | Read | Update | Delete |
+|---|---|---|---|---|
+| Student | ❌ | ❌ | ❌ | ❌ |
+
+## Findings
+
+_No findings detected._
+
+## Limitations
+
+1. **Static analysis is heuristic:** dynamic routes, spread middleware, runtime-registered routes, and aliased clients can be missed or marked low-confidence.
+2. **Ownership is probable, never proven:** static heuristics detect code patterns, not runtime guarantees.
+3. **The matrix is derived from declarations:** it does not execute handlers.
+4. **Audit chain is tamper-evident, not tamper-proof:** the application holds HMAC keys; external checkpoints are required to detect truncation.
+5. **Audited writes serialize on one head row:** creates a throughput ceiling under extreme concurrency.
+
+"
+`;
+
+exports[`Markdown reporter - Snapshot tests on 3 fixtures > generates expected snapshot for missing-auth fixture 1`] = `
+"# Trailguard Scan Report
+
+- **Tool version:** trailguard v0.1.0
+- **Config:** \`test/fixtures/missing-auth/trailguard.config.ts\`
+
+> ⚠️ **Note:** This report is derived statically from route and middleware declarations. It does not execute handlers or prove runtime safety.
+
+## Summary
+
+- **Routes:** 1 total (0 protected, 1 unprotected)
+- **Findings by Risk:** High: 1, Medium: 0, Low: 0
+- **Suppressed (baselined):** 0
+
+## RBAC Access Matrix
+
+*This matrix is derived statically from middleware declarations. It does not execute your handlers.*
+
+_No resources mapped._
+
+## Findings
+
+| # | Risk | Rule | Route/Location | Auth | Role | Ownership | Resource | Handler | Confidence |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | HIGH | RBAC001 | DELETE /api/posts/:id | no | - | none | - | (anonymous) | high |
+
+## Limitations
+
+1. **Static analysis is heuristic:** dynamic routes, spread middleware, runtime-registered routes, and aliased clients can be missed or marked low-confidence.
+2. **Ownership is probable, never proven:** static heuristics detect code patterns, not runtime guarantees.
+3. **The matrix is derived from declarations:** it does not execute handlers.
+4. **Audit chain is tamper-evident, not tamper-proof:** the application holds HMAC keys; external checkpoints are required to detect truncation.
+5. **Audited writes serialize on one head row:** creates a throughput ceiling under extreme concurrency.
+
+"
+`;

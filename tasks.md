@@ -122,7 +122,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.9`.
   - Accept: unit tests for anonymous, any-authenticated, role union, ownership `own`, `uncertain` propagation; verb→action mapping correct.
 
-- [ ] **T2.13 [MVP] Markdown + JSON reporters**
+- [x] **T2.13 [MVP] Markdown + JSON reporters**
   - dep: T2.11, T2.12 · files: `src/scan/report/markdown.ts`, `json.ts`, snapshots
   - Do: `context.md §6.12`; deterministic; injectable clock/version.
   - Accept: snapshot tests on 3 fixtures; report contains the "derived statically" caveat and limitations footer; JSON validates against its TS type.

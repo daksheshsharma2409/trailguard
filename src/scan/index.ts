@@ -141,7 +141,19 @@ export {
   MATRIX_ACTIONS,
 } from './matrix.js';
 
+export {
+  formatMarkdownReport,
+  REPORT_CAVEAT,
+  REPORT_LIMITATIONS,
+  formatJsonReport,
+  parseJsonReport,
+  validateScanResult,
+  ScanResultSchema,
+} from './report/index.js';
+export type { MarkdownReportOptions } from './report/index.js';
+
 // Static API — stubs until Phase 2 tasks implement them
 // export { scan } from './scan.js';
 // export { drift } from './drift.js';
+
 
