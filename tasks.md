@@ -127,7 +127,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.12`; deterministic; injectable clock/version.
   - Accept: snapshot tests on 3 fixtures; report contains the "derived statically" caveat and limitations footer; JSON validates against its TS type.
 
-- [ ] **T2.14 [MVP] `scan()` API + `trailguard scan` command**
+- [x] **T2.14 [MVP] `scan()` API + `trailguard scan` command**
   - dep: T2.13 · files: `src/scan/index.ts`, `src/cli.ts`
   - Do: wire the pipeline; `--format --out --fail-on --baseline --update-baseline --config --verbose`; exit codes 0/1/2; CLI contains no logic beyond arg parsing and calling `scan()`.
   - Accept: e2e test spawns the built CLI on fixtures: `clean` → exit 0, `missing-auth` → exit 1 with `--fail-on high`, bad config path → exit 2; `--fail-on none` always 0.

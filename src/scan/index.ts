@@ -152,8 +152,11 @@ export {
 } from './report/index.js';
 export type { MarkdownReportOptions } from './report/index.js';
 
-// Static API — stubs until Phase 2 tasks implement them
-// export { scan } from './scan.js';
+export { scan } from './scan.js';
+export type { ScanOptions, ScanOutput } from './scan.js';
+
+// Static API — stubs until future tasks implement them
 // export { drift } from './drift.js';
+
 
 

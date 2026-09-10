@@ -10,6 +10,8 @@ import { Command } from 'commander';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
+import { scan } from './scan/index.js';
+import type { Risk } from './core/types.js';
 
 // Resolve package.json for the version string
 const _require = createRequire(import.meta.url);
@@ -35,6 +37,16 @@ program
   .description('Declare, enforce, prove. Static RBAC scanner + tamper-evident audit log.')
   .version(pkg.version, '-v, --version', 'Print version and exit');
 
+interface CliScanOptions {
+  config?: string | undefined;
+  format?: 'md' | 'json' | 'sarif' | undefined;
+  out?: string | undefined;
+  failOn?: Risk | 'none' | undefined;
+  baseline?: string | undefined;
+  updateBaseline?: boolean | undefined;
+  verbose?: boolean | undefined;
+}
+
 // ── scan ──────────────────────────────────────────────────────────────────
 program
   .command('scan [src]')
@@ -46,10 +58,35 @@ program
   .option('--baseline <file>', 'Suppress findings matching baseline file')
   .option('--update-baseline', 'Rewrite baseline from current findings')
   .option('--verbose', 'Verbose output')
-  .action((_src: string | undefined, _opts: unknown) => {
-    // Implemented in T2.14
-    console.error('trailguard scan: not yet implemented');
-    process.exit(2);
+  .action(async (src: string | undefined, opts: CliScanOptions) => {
+    try {
+      const result = await scan({
+        src,
+        config: opts.config,
+        format: opts.format,
+        out: opts.out,
+        failOn: opts.failOn,
+        baseline: opts.baseline,
+        updateBaseline: opts.updateBaseline,
+        verbose: opts.verbose,
+      });
+
+      if (!opts.out) {
+        process.stdout.write(result.report);
+      }
+
+      process.exit(result.exitCode);
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(`trailguard scan error: ${err.message}`);
+        if (opts.verbose && err.stack) {
+          console.error(err.stack);
+        }
+      } else {
+        console.error('trailguard scan error:', String(err));
+      }
+      process.exit(2);
+    }
   });
 
 // ── verify ─────────────────────────────────────────────────────────────────
