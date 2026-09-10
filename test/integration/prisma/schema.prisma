@@ -1,0 +1,51 @@
+datasource db {
+  provider = "mysql"
+  url      = env("TEST_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated"
+}
+
+model Student {
+  id        String  @id @default(cuid())
+  name      String
+  email     String  @unique
+  phone     String?
+  marks     Int?
+  teacherId String?
+}
+
+model AuditLog {
+  seq         BigInt   @id
+  model       String   @db.VarChar(191)
+  recordId    String   @db.VarChar(191)
+  action      String   @db.VarChar(16)
+  actorId     String?  @db.VarChar(191)
+  actorRole   String?  @db.VarChar(64)
+  requestId   String?  @db.VarChar(64)
+  ipAddress   String?  @db.VarChar(64)
+  userAgent   String?  @db.VarChar(512)
+  payload     String   @db.LongText
+  before      Json?
+  after       Json?
+  diff        Json?
+  prevHash    String   @db.Char(64)
+  hash        String   @unique @db.Char(64)
+  keyId       String   @db.VarChar(32)
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+
+  @@index([model, recordId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("trailguard_audit_log")
+}
+
+model AuditHead {
+  id        Int    @id
+  lastSeq   BigInt
+  lastHash  String @db.Char(64)
+
+  @@map("trailguard_audit_head")
+}

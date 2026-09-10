@@ -136,7 +136,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
 ## Phase 3 — Runtime audit log
 
-- [ ] **T3.1 [MVP] Prisma snippet + test schema**
+- [x] **T3.1 [MVP] Prisma snippet + test schema**
   - dep: T0.2 · files: `prisma/trailguard.prisma`, `test/integration/prisma/schema.prisma`, `test/integration/setup.ts`
   - Do: `context.md §7.1` models; test schema includes `Student` (id, name, email, phone, marks, teacherId?) + the two audit models; generated client output to `test/integration/generated`; setup does `prisma migrate reset`/`db push` against `TEST_DATABASE_URL`.
   - Accept: `npm run test:int` connects, pushes schema, and a trivial test inserts a `Student`.
