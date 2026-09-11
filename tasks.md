@@ -141,7 +141,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.1` models; test schema includes `Student` (id, name, email, phone, marks, teacherId?) + the two audit models; generated client output to `test/integration/generated`; setup does `prisma migrate reset`/`db push` against `TEST_DATABASE_URL`.
   - Accept: `npm run test:int` connects, pushes schema, and a trivial test inserts a `Student`.
 
-- [ ] **T3.2 [MVP] Redaction + diff**
+- [x] **T3.2 [MVP] Redaction + diff**
   - dep: T1.4 · files: `src/runtime/redact.ts`, `src/runtime/diff.ts`, unit tests
   - Do: `context.md §7.7`.
   - Accept: redacted output contains `[REDACTED:xxxx]`, raw value absent; same value → same tag, different value → (almost certainly) different tag; diff compares canonically (`{a:1,b:2}` vs reordered = no diff); `ignoreFields` removed.
