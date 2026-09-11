@@ -146,7 +146,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.7`.
   - Accept: redacted output contains `[REDACTED:xxxx]`, raw value absent; same value → same tag, different value → (almost certainly) different tag; diff compares canonically (`{a:1,b:2}` vs reordered = no diff); `ignoreFields` removed.
 
-- [ ] **T3.3 [MVP] Audit context (ALS)**
+- [x] **T3.3 [MVP] Audit context (ALS)**
   - dep: T1.1 · files: `src/runtime/context.ts`, tests
   - Do: `context.md §7.6`; lazy actor resolution; `runWithAuditContext`; `onMissingContext`.
   - Accept: unit/supertest test: middleware before `authenticate` still sees `req.user` at write-time; context isolated across concurrent requests; no context + `'throw'` → `AuditContextMissingError`.
