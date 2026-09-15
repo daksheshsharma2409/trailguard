@@ -151,7 +151,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.6`; lazy actor resolution; `runWithAuditContext`; `onMissingContext`.
   - Accept: unit/supertest test: middleware before `authenticate` still sees `req.user` at write-time; context isolated across concurrent requests; no context + `'throw'` → `AuditContextMissingError`.
 
-- [ ] **T3.4 [MVP] Append (head lock + HMAC chain)**
+- [x] **T3.4 [MVP] Append (head lock + HMAC chain)**
   - dep: T3.1, T3.2, T1.3, T1.4 · files: `src/runtime/append.ts`, integration test
   - Do: `context.md §7.2`, `§7.4`; seq assigned from head; head locked last; payload built from canonical string.
   - Accept: appended rows have seq 1..N gapless, `prevHash` links, `hash` equals recomputed HMAC; first row uses `GENESIS_HASH`; payload JSON parses and matches columns.
