@@ -132,8 +132,16 @@ export function auditContext(options: AuditContextMiddlewareOptions = {}) {
  */
 export function runWithAuditContext<T>(
   context: AuditContext,
+  fn: () => Promise<T>,
+): Promise<T>;
+export function runWithAuditContext<T>(
+  context: AuditContext,
   fn: () => T,
-): T {
+): T;
+export function runWithAuditContext<T>(
+  context: AuditContext,
+  fn: () => T | Promise<T>,
+): T | Promise<T> {
   const store: AuditContextStore = {
     requestId: context.requestId ?? randomUUID(),
     actorId: context.actorId,
@@ -142,7 +150,17 @@ export function runWithAuditContext<T>(
     userAgent: context.userAgent,
   };
 
-  return auditAls.run(store, fn);
+  return auditAls.run(store, () => {
+    const result = fn();
+    if (
+      result !== null &&
+      typeof result === 'object' &&
+      typeof (result as { then?: unknown }).then === 'function'
+    ) {
+      return Promise.resolve(result);
+    }
+    return result;
+  });
 }
 
 /**

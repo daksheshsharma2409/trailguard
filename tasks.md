@@ -156,7 +156,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.2`, `§7.4`; seq assigned from head; head locked last; payload built from canonical string.
   - Accept: appended rows have seq 1..N gapless, `prevHash` links, `hash` equals recomputed HMAC; first row uses `GENESIS_HASH`; payload JSON parses and matches columns.
 
-- [ ] **T3.5 [MVP] `createAuditClient` (create/update/delete/upsert)**
+- [x] **T3.5 [MVP] `createAuditClient` (create/update/delete/upsert)**
   - dep: T3.3, T3.4 · files: `src/runtime/client.ts`, integration tests
   - Do: `context.md §7.5` (tier-1 ops only). Non-audited models pass through untouched. Respect `select/include` on return values.
   - Accept: create/update/delete/upsert each produce exactly one audit row with correct `before/after/diff/action/actor`; returned objects match what raw Prisma would return (incl. with `select`); non-audited model writes create no audit row; business write and audit row roll back together when `testHooks.beforeAppend` throws.

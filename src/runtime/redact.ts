@@ -14,9 +14,9 @@ import { AuditConfigError } from '../core/errors.js';
 export interface RedactOptions {
   model: string;
   key: string | Buffer;
-  redactFields?: string[];
-  redact?: Record<string, string[]>;
-  ignoreFields?: Record<string, string[]> | string[];
+  redactFields?: string[] | undefined;
+  redact?: Record<string, string[]> | undefined;
+  ignoreFields?: Record<string, string[]> | string[] | undefined;
 }
 
 const REDACTED_REGEX = /^\[REDACTED:[0-9a-f]{4}\]$/;

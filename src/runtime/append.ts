@@ -38,8 +38,8 @@ export interface AppendOptions {
   keyId: string;
   key: string | Buffer;
   testHooks?: {
-    beforeAppend?: () => void | Promise<void>;
-  };
+    beforeAppend?: (() => void | Promise<void>) | undefined;
+  } | undefined;
 }
 
 export interface AppendedRecord {
