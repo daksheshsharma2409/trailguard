@@ -161,7 +161,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.5` (tier-1 ops only). Non-audited models pass through untouched. Respect `select/include` on return values.
   - Accept: create/update/delete/upsert each produce exactly one audit row with correct `before/after/diff/action/actor`; returned objects match what raw Prisma would return (incl. with `select`); non-audited model writes create no audit row; business write and audit row roll back together when `testHooks.beforeAppend` throws.
 
-- [ ] **T3.6 [MVP] Verify**
+- [x] **T3.6 [MVP] Verify**
   - dep: T3.4 · files: `src/runtime/verify.ts`, integration tests
   - Do: `context.md §7.9` steps 1–6 (checkpoint steps come in T3.7).
   - Accept: valid chain → `valid:true, checkedRecords:N`; edit `payload` → `HASH_MISMATCH`; edit only `before` column → `COLUMN_PAYLOAD_MISMATCH`; delete middle row → `SEQ_GAP`; swap seq of two rows → fails; head mismatch → `HEAD_MISMATCH`; batches correctly over >1000 rows (use small batch size in test).

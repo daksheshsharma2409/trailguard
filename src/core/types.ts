@@ -227,9 +227,9 @@ export interface VerifyProblem {
 export interface VerifyResult {
   valid: boolean;
   checkedRecords: number;
-  head?: { seq: string; hash: string };
+  head?: { seq: string; hash: string } | undefined;
   checkpointsChecked: number;
   problems: VerifyProblem[];
-  brokenAt?: string;
-  reason?: string;
+  brokenAt?: string | undefined;
+  reason?: string | undefined;
 }
