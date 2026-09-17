@@ -24,12 +24,12 @@ export function toDelegateName(modelName: string): string {
   return modelName.charAt(0).toLowerCase() + modelName.slice(1);
 }
 
-interface NormalizedKeys {
+export interface NormalizedKeys {
   currentKeyId: string;
   currentKey: string;
 }
 
-function resolveKeys(options: AuditOptions): NormalizedKeys {
+export function resolveKeys(options: AuditOptions): NormalizedKeys {
   if ('secret' in options.keys) {
     if (!options.keys.secret) {
       throw new AuditConfigError('Secret in options.keys.secret must not be empty');

@@ -48,11 +48,30 @@ export type {
   HttpMethod,
 } from './core/types.js';
 
-// Runtime API — stubs until Phase 3 tasks implement them
-// export { createAuditClient } from './runtime/client.js';
-// export { auditContext, runWithAuditContext, getAuditContext } from './runtime/context.js';
-// export { auditRouter } from './runtime/router.js';
-// export { verifyAuditChain } from './runtime/verify.js';
-// export { createCheckpoint } from './runtime/checkpoint.js';
-// export { exportAuditLogs } from './runtime/export.js';
-// export { AuditChainService } from './runtime/service.js';
+// Runtime API
+export { createAuditClient } from './runtime/client.js';
+export {
+  auditContext,
+  runWithAuditContext,
+  getAuditContext,
+} from './runtime/context.js';
+export { verifyAuditChain } from './runtime/verify.js';
+export {
+  createCheckpoint,
+  verifyCheckpointSignature,
+  fileSink,
+  stdoutSink,
+  callbackSink,
+} from './runtime/checkpoint.js';
+export {
+  AuditChainService,
+  type ManualLogInput,
+  type AuditServicePrismaClient,
+} from './runtime/service.js';
+export {
+  getHistory,
+  type HistoryEntry,
+  type GetHistoryOptions,
+} from './runtime/history.js';
+// export { auditRouter } from './runtime/router.js'; // T3.10
+// export { exportAuditLogs } from './runtime/export.js'; // T3.11

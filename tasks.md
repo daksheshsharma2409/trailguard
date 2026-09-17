@@ -175,7 +175,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - dep: T3.5, T3.6 · files: `test/integration/concurrency.test.ts`
   - Accept: 50 parallel updates and a mixed 60-op create/update/delete burst → chain valid, seqs contiguous, no duplicate seq, no deadlock errors; run the suite 5× in CI loop without flake.
 
-- [ ] **T3.9 [MVP] `AuditChainService` class + history queries**
+- [x] **T3.9 [MVP] `AuditChainService` class + history queries**
   - dep: T3.6 · files: `src/runtime/index parts`, `src/runtime/history.ts`, `src/index.ts`
   - Do: `context.md §7.12`; `log()` usable with a caller-provided `tx`.
   - Accept: manual `service.log()` inside the user's own `$transaction` commits/rolls back with it; `getHistory(model, recordId)` ordered by seq.
