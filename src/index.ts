@@ -73,5 +73,9 @@ export {
   type HistoryEntry,
   type GetHistoryOptions,
 } from './runtime/history.js';
-// export { auditRouter } from './runtime/router.js'; // T3.10
+export {
+  auditRouter,
+  type AuditRouterOptions,
+  type RouterPrismaClient,
+} from './runtime/router.js';
 // export { exportAuditLogs } from './runtime/export.js'; // T3.11

@@ -180,7 +180,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.12`; `log()` usable with a caller-provided `tx`.
   - Accept: manual `service.log()` inside the user's own `$transaction` commits/rolls back with it; `getHistory(model, recordId)` ordered by seq.
 
-- [ ] **T3.10 [MVP] `auditRouter`**
+- [x] **T3.10 [MVP] `auditRouter`**
   - dep: T3.9 · files: `src/runtime/router.ts`, integration/supertest tests
   - Do: `context.md §7.10` (logs, logs/:seq, history, verify; export in T3.11). zod-validated query; pagination caps.
   - Accept: constructing without `guard` throws `AuditConfigError`; unauthenticated → guard's response; ADMIN gets data; `pageSize=100000` is capped; unknown `model` query → 400; responses never contain raw redacted values.

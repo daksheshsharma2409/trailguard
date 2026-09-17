@@ -69,9 +69,9 @@ export interface VerifyPrismaClient {
 export interface VerifyOptions {
   prisma: VerifyPrismaClient;
   keys: KeysOptions | KeysShorthand;
-  batchSize?: number;
-  all?: boolean;
-  checkpoints?: Checkpoint[];
+  batchSize?: number | undefined;
+  all?: boolean | undefined;
+  checkpoints?: Checkpoint[] | undefined;
 }
 
 function resolveKeyMap(keys: KeysOptions | KeysShorthand): Map<string, string> {
