@@ -9,8 +9,9 @@
 
 import { DEFAULT_KEY_ID } from '../core/constants.js';
 import { AuditConfigError } from '../core/errors.js';
-import type { AuditAction, AuditOptions } from '../core/types.js';
-import { appendAuditEntries, type AuditPrismaTx } from './append.js';
+import type { AuditAction, AuditOptions, CheckpointSink } from '../core/types.js';
+import { appendAuditEntries, type AppendedRecord, type AuditPrismaTx } from './append.js';
+import { createCheckpoint } from './checkpoint.js';
 import { getAuditContext } from './context.js';
 import { createDiff } from './diff.js';
 import { redactRecord } from './redact.js';
@@ -90,6 +91,30 @@ interface ModelDelegate {
   findUnique: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
 }
 
+async function emitCheckpointsIfDue(
+  records: AppendedRecord[],
+  checkpointConfig: { every: number; sink: CheckpointSink } | undefined,
+  currentKey: string,
+  currentKeyId: string,
+  onError?: (e: Error) => void,
+): Promise<void> {
+  if (!checkpointConfig || checkpointConfig.every <= 0) return;
+  const cadence = BigInt(checkpointConfig.every);
+
+  for (const rec of records) {
+    if (rec.seq % cadence === 0n) {
+      try {
+        const cp = createCheckpoint(rec, currentKey, currentKeyId);
+        await Promise.resolve(checkpointConfig.sink(cp));
+      } catch (err) {
+        if (typeof onError === 'function' && err instanceof Error) {
+          onError(err);
+        }
+      }
+    }
+  }
+}
+
 /**
  * Creates an audited Prisma client extension.
  *
@@ -148,12 +173,12 @@ export function createAuditClient<
           const { select, include, ...strippedArgs } = args;
           const context = getAuditContext(options.onMissingContext ?? 'throw');
 
-          return prisma.$transaction(
+          const txRes = (await prisma.$transaction(
             async (tx: unknown) => {
               const txObj = tx as Record<string, ModelDelegate | undefined>;
               const txDelegate = txObj[delegate];
               if (!txDelegate) {
-                return query(args);
+                return { result: await query(args), appended: [] };
               }
 
               const rawRow = await txDelegate.create(strippedArgs);
@@ -167,7 +192,7 @@ export function createAuditClient<
                 ignoreFields: options.ignoreFields,
               });
 
-              await appendAuditEntries(
+              const appended = await appendAuditEntries(
                 tx as unknown as AuditPrismaTx,
                 [
                   {
@@ -191,6 +216,7 @@ export function createAuditClient<
                 },
               );
 
+              let finalResult: unknown = rawRow;
               if (hasCustomSelection) {
                 const idDef = options.idFields?.[model] ?? options.idFields?.[delegate] ?? 'id';
                 const whereClause: Record<string, unknown> = {};
@@ -199,20 +225,30 @@ export function createAuditClient<
                 } else {
                   whereClause[idDef] = rawRow[idDef];
                 }
-                return txDelegate.findUnique({
+                finalResult = await txDelegate.findUnique({
                   where: whereClause,
                   select,
                   include,
                 });
               }
 
-              return rawRow;
+              return { result: finalResult, appended };
             },
             {
               maxWait: options.tx?.maxWait ?? 5000,
               timeout: options.tx?.timeout ?? 10000,
             },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
           );
+
+          return txRes.result;
         },
 
         async update(
@@ -237,18 +273,18 @@ export function createAuditClient<
           const where = args['where'] as Record<string, unknown> | undefined;
           const context = getAuditContext(options.onMissingContext ?? 'throw');
 
-          return prisma.$transaction(
+          const txRes = (await prisma.$transaction(
             async (tx: unknown) => {
               const txObj = tx as Record<string, ModelDelegate | undefined>;
               const txDelegate = txObj[delegate];
               if (!txDelegate) {
-                return query(args);
+                return { result: await query(args), appended: [] };
               }
 
               const before = where ? await txDelegate.findUnique({ where }) : null;
               if (before === null) {
                 // Let Prisma throw standard P2025 error
-                return query(args);
+                return { result: await query(args), appended: [] };
               }
 
               const rawRow = await txDelegate.update(strippedArgs);
@@ -270,7 +306,7 @@ export function createAuditClient<
               });
               const diff = createDiff(redactedBefore, redactedAfter, 'UPDATE');
 
-              await appendAuditEntries(
+              const appended = await appendAuditEntries(
                 tx as unknown as AuditPrismaTx,
                 [
                   {
@@ -294,21 +330,32 @@ export function createAuditClient<
                 },
               );
 
+              let finalResult: unknown = rawRow;
               if (hasCustomSelection && where) {
-                return txDelegate.findUnique({
+                finalResult = await txDelegate.findUnique({
                   where,
                   select,
                   include,
                 });
               }
 
-              return rawRow;
+              return { result: finalResult, appended };
             },
             {
               maxWait: options.tx?.maxWait ?? 5000,
               timeout: options.tx?.timeout ?? 10000,
             },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
           );
+
+          return txRes.result;
         },
 
         async delete(
@@ -333,12 +380,12 @@ export function createAuditClient<
           const where = args['where'] as Record<string, unknown> | undefined;
           const context = getAuditContext(options.onMissingContext ?? 'throw');
 
-          return prisma.$transaction(
+          const txRes = (await prisma.$transaction(
             async (tx: unknown) => {
               const txObj = tx as Record<string, ModelDelegate | undefined>;
               const txDelegate = txObj[delegate];
               if (!txDelegate) {
-                return query(args);
+                return { result: await query(args), appended: [] };
               }
 
               let shapedReturn: unknown = null;
@@ -352,7 +399,7 @@ export function createAuditClient<
 
               const before = where ? await txDelegate.findUnique({ where }) : null;
               if (before === null) {
-                return query(args);
+                return { result: await query(args), appended: [] };
               }
 
               const recordId = extractRecordId(model, before, where, options.idFields);
@@ -366,7 +413,7 @@ export function createAuditClient<
                 ignoreFields: options.ignoreFields,
               });
 
-              await appendAuditEntries(
+              const appended = await appendAuditEntries(
                 tx as unknown as AuditPrismaTx,
                 [
                   {
@@ -390,13 +437,26 @@ export function createAuditClient<
                 },
               );
 
-              return hasCustomSelection ? shapedReturn : before;
+              return {
+                result: hasCustomSelection ? shapedReturn : before,
+                appended,
+              };
             },
             {
               maxWait: options.tx?.maxWait ?? 5000,
               timeout: options.tx?.timeout ?? 10000,
             },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
           );
+
+          return txRes.result;
         },
 
         async upsert(
@@ -421,12 +481,12 @@ export function createAuditClient<
           const where = args['where'] as Record<string, unknown> | undefined;
           const context = getAuditContext(options.onMissingContext ?? 'throw');
 
-          return prisma.$transaction(
+          const txRes = (await prisma.$transaction(
             async (tx: unknown) => {
               const txObj = tx as Record<string, ModelDelegate | undefined>;
               const txDelegate = txObj[delegate];
               if (!txDelegate) {
-                return query(args);
+                return { result: await query(args), appended: [] };
               }
 
               const before = where ? await txDelegate.findUnique({ where }) : null;
@@ -451,7 +511,7 @@ export function createAuditClient<
               });
               const diff = createDiff(redactedBefore, redactedAfter, action);
 
-              await appendAuditEntries(
+              const appended = await appendAuditEntries(
                 tx as unknown as AuditPrismaTx,
                 [
                   {
@@ -475,21 +535,32 @@ export function createAuditClient<
                 },
               );
 
+              let finalResult: unknown = rawRow;
               if (hasCustomSelection && where) {
-                return txDelegate.findUnique({
+                finalResult = await txDelegate.findUnique({
                   where,
                   select,
                   include,
                 });
               }
 
-              return rawRow;
+              return { result: finalResult, appended };
             },
             {
               maxWait: options.tx?.maxWait ?? 5000,
               timeout: options.tx?.timeout ?? 10000,
             },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
           );
+
+          return txRes.result;
         },
       },
     },

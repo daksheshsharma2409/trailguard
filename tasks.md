@@ -166,7 +166,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.9` steps 1–6 (checkpoint steps come in T3.7).
   - Accept: valid chain → `valid:true, checkedRecords:N`; edit `payload` → `HASH_MISMATCH`; edit only `before` column → `COLUMN_PAYLOAD_MISMATCH`; delete middle row → `SEQ_GAP`; swap seq of two rows → fails; head mismatch → `HEAD_MISMATCH`; batches correctly over >1000 rows (use small batch size in test).
 
-- [ ] **T3.7 [MVP] Checkpoints**
+- [x] **T3.7 [MVP] Checkpoints**
   - dep: T3.6 · files: `src/runtime/checkpoint.ts`, integration tests
   - Do: `context.md §7.8` + verify steps 7; `fileSink`, `stdoutSink`, `callbackSink`; cadence hook in append; `createCheckpoint()` on demand.
   - Accept: delete the last rows **and** reset `AuditHead` → plain verify says valid but verify-with-checkpoints returns `TRUNCATION_DETECTED`; forged checkpoint signature → `CHECKPOINT_BAD_SIGNATURE`; checkpoint sink failure does not fail the business write (`onError` called).
