@@ -171,7 +171,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.8` + verify steps 7; `fileSink`, `stdoutSink`, `callbackSink`; cadence hook in append; `createCheckpoint()` on demand.
   - Accept: delete the last rows **and** reset `AuditHead` → plain verify says valid but verify-with-checkpoints returns `TRUNCATION_DETECTED`; forged checkpoint signature → `CHECKPOINT_BAD_SIGNATURE`; checkpoint sink failure does not fail the business write (`onError` called).
 
-- [ ] **T3.8 [MVP] Concurrency + atomicity tests**
+- [x] **T3.8 [MVP] Concurrency + atomicity tests**
   - dep: T3.5, T3.6 · files: `test/integration/concurrency.test.ts`
   - Accept: 50 parallel updates and a mixed 60-op create/update/delete burst → chain valid, seqs contiguous, no duplicate seq, no deadlock errors; run the suite 5× in CI loop without flake.
 

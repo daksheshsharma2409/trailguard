@@ -10,7 +10,7 @@
 import { DEFAULT_KEY_ID } from '../core/constants.js';
 import { AuditConfigError } from '../core/errors.js';
 import type { AuditAction, AuditOptions, CheckpointSink } from '../core/types.js';
-import { appendAuditEntries, type AppendedRecord, type AuditPrismaTx } from './append.js';
+import { appendAuditEntries, ensureHeadRow, isHeadInitialized, type AppendedRecord, type AuditPrismaTx } from './append.js';
 import { createCheckpoint } from './checkpoint.js';
 import { getAuditContext } from './context.js';
 import { createDiff } from './diff.js';
@@ -173,6 +173,10 @@ export function createAuditClient<
           const { select, include, ...strippedArgs } = args;
           const context = getAuditContext(options.onMissingContext ?? 'throw');
 
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
+
           const txRes = (await prisma.$transaction(
             async (tx: unknown) => {
               const txObj = tx as Record<string, ModelDelegate | undefined>;
@@ -272,6 +276,10 @@ export function createAuditClient<
           const { select, include, ...strippedArgs } = args;
           const where = args['where'] as Record<string, unknown> | undefined;
           const context = getAuditContext(options.onMissingContext ?? 'throw');
+
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
 
           const txRes = (await prisma.$transaction(
             async (tx: unknown) => {
@@ -380,6 +388,10 @@ export function createAuditClient<
           const where = args['where'] as Record<string, unknown> | undefined;
           const context = getAuditContext(options.onMissingContext ?? 'throw');
 
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
+
           const txRes = (await prisma.$transaction(
             async (tx: unknown) => {
               const txObj = tx as Record<string, ModelDelegate | undefined>;
@@ -480,6 +492,10 @@ export function createAuditClient<
           const { select, include, ...strippedArgs } = args;
           const where = args['where'] as Record<string, unknown> | undefined;
           const context = getAuditContext(options.onMissingContext ?? 'throw');
+
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
 
           const txRes = (await prisma.$transaction(
             async (tx: unknown) => {

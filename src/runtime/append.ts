@@ -83,6 +83,14 @@ export interface AuditPrismaTx {
 }
 
 let headInitialized = false;
+let initPromise: Promise<void> | null = null;
+
+/**
+ * Returns whether the head row has already been initialized in the database.
+ */
+export function isHeadInitialized(): boolean {
+  return headInitialized;
+}
 
 /**
  * Reset in-memory flag tracking whether the AuditHead row has been initialized.
@@ -90,22 +98,32 @@ let headInitialized = false;
  */
 export function resetHeadCache(): void {
   headInitialized = false;
+  initPromise = null;
 }
 
 /**
  * Ensure AuditHead row (id = 1) exists in the database.
  */
-export async function ensureHeadRow(tx: AuditPrismaTx): Promise<void> {
+export async function ensureHeadRow(txOrClient: AuditPrismaTx): Promise<void> {
   if (headInitialized) {
     return;
   }
-  if (typeof tx.auditHead.createMany === 'function') {
-    await tx.auditHead.createMany({
-      data: [{ id: AUDIT_HEAD_ID, lastSeq: 0n, lastHash: GENESIS_HASH }],
-      skipDuplicates: true,
-    });
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
+        if (typeof txOrClient.auditHead.createMany === 'function') {
+          await txOrClient.auditHead.createMany({
+            data: [{ id: AUDIT_HEAD_ID, lastSeq: 0n, lastHash: GENESIS_HASH }],
+            skipDuplicates: true,
+          });
+        }
+        headInitialized = true;
+      } finally {
+        initPromise = null;
+      }
+    })();
   }
-  headInitialized = true;
+  await initPromise;
 }
 
 /**
