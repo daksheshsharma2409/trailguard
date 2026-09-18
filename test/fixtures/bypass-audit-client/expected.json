@@ -1,0 +1,8 @@
+{
+  "findings": [
+    {
+      "ruleId": "AUD001",
+      "risk": "high"
+    }
+  ]
+}

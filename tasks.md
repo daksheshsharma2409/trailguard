@@ -207,7 +207,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
 ## Phase 4 — The bridge (static ⇄ runtime)
 
-- [ ] **T4.1 [MVP] Prisma write discovery**
+- [x] **T4.1 [MVP] Prisma write discovery**
   - dep: T2.9 · files: `src/scan/prisma-writes.ts`, fixtures `bypass-audit-client`, `raw-sql`
   - Do: `context.md §6.8`.
   - Accept: `prisma.student.update()` found; `auditClient.student.update()` not flagged; `tx.student.delete()` inside `$transaction(async tx => …)` found; non-audited model ignored; raw SQL detection catches `UPDATE`/`DELETE` text in tagged templates and strings.

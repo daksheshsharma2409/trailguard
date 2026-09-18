@@ -155,6 +155,21 @@ export type { MarkdownReportOptions } from './report/index.js';
 export { scan } from './scan.js';
 export type { ScanOptions, ScanOutput } from './scan.js';
 
+export {
+  findPrismaWrites,
+  WRITE_OPS,
+  RAW_SQL_METHODS,
+  RAW_SQL_WRITE_REGEX,
+  findEnclosingFunctionName,
+  findMatchingRouteNode,
+} from './prisma-writes.js';
+export type {
+  DiscoveredModelWrite,
+  DiscoveredRawSqlWrite,
+  DiscoveredWrite,
+  PrismaWriteDiscoveryResult,
+} from './prisma-writes.js';
+
 // Static API — stubs until future tasks implement them
 // export { drift } from './drift.js';
 
