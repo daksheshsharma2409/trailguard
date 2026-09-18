@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
 import { scan } from './scan/index.js';
+import { runVerifyCommand, type VerifyCommandOptions } from './cli/verify-command.js';
 import type { Risk } from './core/types.js';
 
 // Resolve package.json for the version string
@@ -97,10 +98,14 @@ program
   .option('--checkpoints <file>', 'Path to checkpoints JSONL file')
   .option('--key-env <name>', 'Env var holding the HMAC key', 'TRAILGUARD_KEY')
   .option('--all', 'Collect all problems instead of stopping at first')
-  .action((_opts: unknown) => {
-    // Implemented in T5.1
-    console.error('trailguard verify: not yet implemented');
-    process.exit(2);
+  .action(async (opts: VerifyCommandOptions) => {
+    const outcome = await runVerifyCommand(opts);
+    if (outcome.exitCode === 0 || outcome.exitCode === 1) {
+      console.log(outcome.message);
+    } else {
+      console.error(outcome.message);
+    }
+    process.exit(outcome.exitCode);
   });
 
 // ── drift ──────────────────────────────────────────────────────────────────

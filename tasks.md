@@ -235,7 +235,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
 ## Phase 5 — CLI completion
 
-- [ ] **T5.1 [MVP] `trailguard verify`**
+- [x] **T5.1 [MVP] `trailguard verify`**
   - dep: T3.7 · files: `src/cli.ts`, `src/cli/prisma-client.ts`
   - Do: load user's `@prisma/client` resolved **from cwd** (`createRequire(cwd)`); key from `process.env[keyEnv]`; `--checkpoints`; `--all`; human output `✔ valid (N records)` / `✖ broken at seq X: reason`.
   - Accept: valid DB → exit 0; tampered → exit 1 with seq + reason; missing key env or unreachable DB → exit 2 with clear message; key never printed.
