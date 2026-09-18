@@ -22,6 +22,7 @@ import {
   rbac005,
   rbac007,
   aud001,
+  aud002,
 } from '../../src/scan/rules/index.js';
 import { findPrismaWrites } from '../../src/scan/prisma-writes.js';
 import { ConfigSchema } from '../../src/config/schema.js';
@@ -245,7 +246,8 @@ describe('Fixtures verification for acceptance criteria', () => {
     expect(DEFAULT_RULES).toContain(rbac005);
     expect(DEFAULT_RULES).toContain(rbac007);
     expect(DEFAULT_RULES).toContain(aud001);
-    expect(DEFAULT_RULES.length).toBe(5);
+    expect(DEFAULT_RULES).toContain(aud002);
+    expect(DEFAULT_RULES.length).toBe(6);
   });
 
   describe('Rule AUD001 (bypass audit client)', () => {
@@ -340,6 +342,175 @@ describe('Fixtures verification for acceptance criteria', () => {
       // Fingerprints MUST be strictly identical
       expect(findingsA[0]?.fingerprint).toBe(findingsB[0]?.fingerprint);
       expect(findingsA[0]?.fingerprint.length).toBe(64);
+    });
+  });
+
+  describe('Rule AUD002 (audit router guarded)', () => {
+    it('produces exactly one AUD002 HIGH on audit-router-unguarded fixture', async () => {
+      const { project, config } = await loadFixture('audit-router-unguarded');
+      const { routes: composed } = composeMounts(project);
+      const schema = parsePrismaSchema('');
+      const routeNodes = buildRouteNodes(composed, config, schema);
+
+      const findings = aud002.run({
+        routes: routeNodes,
+        config,
+        prismaSchema: schema,
+        project,
+      });
+
+      expect(findings.length).toBe(1);
+      const finding = findings[0]!;
+      expect(finding.ruleId).toBe('AUD002');
+      expect(finding.risk).toBe('high');
+      expect(finding.route?.path).toBe('/audit');
+      expect(finding.message).toContain('/audit');
+    });
+
+    it('produces 0 findings on audit-router-guarded fixture', async () => {
+      const { project, config } = await loadFixture('audit-router-guarded');
+      const { routes: composed } = composeMounts(project);
+      const schema = parsePrismaSchema('');
+      const routeNodes = buildRouteNodes(composed, config, schema);
+
+      const findings = aud002.run({
+        routes: routeNodes,
+        config,
+        prismaSchema: schema,
+        project,
+      });
+
+      expect(findings).toEqual([]);
+    });
+
+    it('counts auditRouter({ guard }) option as guarded when containing auth and role', () => {
+      const code = `
+        import express from 'express';
+        const app = express();
+        const authenticate = (req: any, res: any, next: any) => next();
+        const requireRole = (role: string) => (req: any, res: any, next: any) => next();
+        const auditRouter = (options?: any) => express.Router();
+
+        // Guard provided only via options
+        app.use('/audit', auditRouter({
+          guard: [authenticate, requireRole('ADMIN')],
+        }));
+      `;
+
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        auth: { middleware: ['authenticate'] },
+        roles: { middleware: ['requireRole'], known: ['ADMIN'] },
+        audit: { routerNames: ['auditRouter'] },
+      });
+
+      const project = new Project({ useInMemoryFileSystem: true });
+      project.createSourceFile('app.ts', code);
+
+      const findings = aud002.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        project,
+      });
+
+      expect(findings).toEqual([]);
+    });
+
+    it('flags auditRouter({ guard }) when guard only has auth but no role', () => {
+      const code = `
+        import express from 'express';
+        const app = express();
+        const authenticate = (req: any, res: any, next: any) => next();
+        const auditRouter = (options?: any) => express.Router();
+
+        app.use('/audit', auditRouter({
+          guard: authenticate,
+        }));
+      `;
+
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        auth: { middleware: ['authenticate'] },
+        roles: { middleware: ['requireRole'], known: ['ADMIN'] },
+        audit: { routerNames: ['auditRouter'] },
+      });
+
+      const project = new Project({ useInMemoryFileSystem: true });
+      project.createSourceFile('app.ts', code);
+
+      const findings = aud002.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        project,
+      });
+
+      expect(findings.length).toBe(1);
+      expect(findings[0]?.ruleId).toBe('AUD002');
+    });
+
+    it('resolves variable reference holding auditRouter() and detects unguarded mount', () => {
+      const code = `
+        import express from 'express';
+        const app = express();
+        const auditRouter = (options?: any) => express.Router();
+
+        const audit = auditRouter();
+        app.use('/api/audit', audit);
+      `;
+
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        audit: { routerNames: ['auditRouter'] },
+      });
+
+      const project = new Project({ useInMemoryFileSystem: true });
+      project.createSourceFile('app.ts', code);
+
+      const findings = aud002.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        project,
+      });
+
+      expect(findings.length).toBe(1);
+      expect(findings[0]?.ruleId).toBe('AUD002');
+      expect(findings[0]?.route?.path).toBe('/api/audit');
+    });
+
+    it('honors app-level auth and role middleware preceding the mount', () => {
+      const code = `
+        import express from 'express';
+        const app = express();
+        const authenticate = (req: any, res: any, next: any) => next();
+        const requireRole = (role: string) => (req: any, res: any, next: any) => next();
+        const auditRouter = (options?: any) => express.Router();
+
+        app.use(authenticate);
+        app.use(requireRole('ADMIN'));
+        app.use('/audit', auditRouter());
+      `;
+
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        auth: { middleware: ['authenticate'] },
+        roles: { middleware: ['requireRole'], known: ['ADMIN'] },
+        audit: { routerNames: ['auditRouter'] },
+      });
+
+      const project = new Project({ useInMemoryFileSystem: true });
+      project.createSourceFile('app.ts', code);
+
+      const findings = aud002.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        project,
+      });
+
+      expect(findings).toEqual([]);
     });
   });
 });

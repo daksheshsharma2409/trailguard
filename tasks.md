@@ -216,7 +216,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - dep: T4.1 · files: `src/scan/rules/aud001.ts`
   - Accept: fixture `bypass-audit-client` → exactly one `AUD001` HIGH with file/line/model.op in message; fingerprint stable across line shifts; includes route info when inside a handler.
 
-- [ ] **T4.3 [MVP] Rule `AUD002` (audit router guarded)**
+- [x] **T4.3 [MVP] Rule `AUD002` (audit router guarded)**
   - dep: T2.9 · files: `src/scan/rules/aud002.ts`, fixtures `audit-router-unguarded`, `audit-router-guarded`
   - Do: find `app.use(path, ...mw, auditRouter(...))` (factory names from `audit.routerNames`); require `auth` **and** a `role:*` in the effective chain.
   - Accept: unguarded → `AUD002` HIGH; guarded → none; guard supplied only via `auditRouter({ guard })` option (static literal containing a classified auth+role) also counts as guarded.
