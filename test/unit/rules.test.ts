@@ -21,7 +21,9 @@ import {
   rbac002,
   rbac005,
   rbac007,
+  aud001,
 } from '../../src/scan/rules/index.js';
+import { findPrismaWrites } from '../../src/scan/prisma-writes.js';
 import { ConfigSchema } from '../../src/config/schema.js';
 
 describe('Stable fingerprints (no line numbers)', () => {
@@ -242,7 +244,104 @@ describe('Fixtures verification for acceptance criteria', () => {
     expect(DEFAULT_RULES).toContain(rbac002);
     expect(DEFAULT_RULES).toContain(rbac005);
     expect(DEFAULT_RULES).toContain(rbac007);
-    expect(DEFAULT_RULES.length).toBe(4);
+    expect(DEFAULT_RULES).toContain(aud001);
+    expect(DEFAULT_RULES.length).toBe(5);
+  });
+
+  describe('Rule AUD001 (bypass audit client)', () => {
+    it('fixture bypass-audit-client produces exactly one AUD001 HIGH with file/line/model.op in message and route info', async () => {
+      const { project, config } = await loadFixture('bypass-audit-client');
+      const { routes: composed } = composeMounts(project);
+      const schema = parsePrismaSchema('');
+      const routeNodes = buildRouteNodes(composed, config, schema);
+      const prismaWrites = findPrismaWrites(project, config, routeNodes);
+
+      const findings = aud001.run({
+        routes: routeNodes,
+        config,
+        prismaSchema: schema,
+        prismaWrites,
+        project,
+      });
+
+      // Exactly one AUD001
+      expect(findings.length).toBe(1);
+      const finding = findings[0]!;
+      expect(finding.ruleId).toBe('AUD001');
+      expect(finding.risk).toBe('high');
+      expect(finding.confidence).toBe('high');
+
+      // Message contains file, line, and model.op
+      expect(finding.message).toContain('Student.update');
+      expect(finding.message).toContain(String(finding.line));
+      expect(finding.message).toContain('src/app.ts');
+
+      // Includes route info when inside a handler
+      expect(finding.route).toBeDefined();
+      expect(finding.route?.method).toBe('PATCH');
+      expect(finding.route?.path).toBe('/api/students/:id');
+
+      // Resource is recorded
+      expect(finding.resource?.model).toBe('Student');
+    });
+
+    it('fingerprint is stable across line shifts', () => {
+      const codeA = `
+        const prisma: any = {};
+        async function updateFn() {
+          await prisma.student.update({ where: { id: 1 }, data: { name: 'Bob' } });
+        }
+      `;
+
+      const codeB = `
+        // Added comment lines
+        // Another comment
+        // Line 3
+        // Line 4
+        // Line 5
+        const unused = 123;
+        const prisma: any = {};
+        async function updateFn() {
+          await prisma.student.update({ where: { id: 1 }, data: { name: 'Bob' } });
+        }
+      `;
+
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        audit: { models: ['Student'] },
+      });
+
+      const projectA = new Project({ useInMemoryFileSystem: true });
+      projectA.createSourceFile('app.ts', codeA);
+      const writesA = findPrismaWrites(projectA, cfg);
+      const findingsA = aud001.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        prismaWrites: writesA,
+      });
+
+      const projectB = new Project({ useInMemoryFileSystem: true });
+      projectB.createSourceFile('app.ts', codeB);
+      const writesB = findPrismaWrites(projectB, cfg);
+      const findingsB = aud001.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        prismaWrites: writesB,
+      });
+
+      expect(findingsA.length).toBe(1);
+      expect(findingsB.length).toBe(1);
+
+      // Line numbers MUST differ
+      expect(findingsA[0]?.line).not.toBe(findingsB[0]?.line);
+
+      // Fingerprints MUST be strictly identical
+      expect(findingsA[0]?.fingerprint).toBe(findingsB[0]?.fingerprint);
+      expect(findingsA[0]?.fingerprint.length).toBe(64);
+    });
   });
 });
+
 

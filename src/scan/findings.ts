@@ -23,10 +23,15 @@ import { classifyMiddleware } from './classify.js';
 import { mapResource } from './resources.js';
 import { checkOwnershipHeuristic } from './ownership.js';
 
+import type { Project } from 'ts-morph';
+import type { PrismaWriteDiscoveryResult } from './prisma-writes.js';
+
 export interface RuleContext {
   routes: RouteNode[];
   config: Config;
   prismaSchema: PrismaSchemaResult;
+  prismaWrites?: PrismaWriteDiscoveryResult | undefined;
+  project?: Project | undefined;
 }
 
 export interface Rule {

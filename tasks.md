@@ -212,7 +212,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §6.8`.
   - Accept: `prisma.student.update()` found; `auditClient.student.update()` not flagged; `tx.student.delete()` inside `$transaction(async tx => …)` found; non-audited model ignored; raw SQL detection catches `UPDATE`/`DELETE` text in tagged templates and strings.
 
-- [ ] **T4.2 [MVP] Rule `AUD001` (bypass)**
+- [x] **T4.2 [MVP] Rule `AUD001` (bypass)**
   - dep: T4.1 · files: `src/scan/rules/aud001.ts`
   - Accept: fixture `bypass-audit-client` → exactly one `AUD001` HIGH with file/line/model.op in message; fingerprint stable across line shifts; includes route info when inside a handler.
 

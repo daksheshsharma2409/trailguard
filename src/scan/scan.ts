@@ -25,6 +25,7 @@ import {
   isThresholdExceeded,
 } from './findings.js';
 import { runRules } from './rules/index.js';
+import { findPrismaWrites } from './prisma-writes.js';
 import { deriveMatrix } from './matrix.js';
 import { formatMarkdownReport } from './report/markdown.js';
 import { formatJsonReport } from './report/json.js';
@@ -140,11 +141,16 @@ export async function scan(options: ScanOptions = {}): Promise<ScanOutput> {
   // 5. Build enriched route nodes
   const routeNodes = buildRouteNodes(composedRoutes, config, prismaSchema);
 
-  // 6. Run static rules
+  // 6. Prisma write discovery
+  const prismaWrites = findPrismaWrites(project, config, routeNodes);
+
+  // 7. Run static rules
   let findings = runRules({
     routes: routeNodes,
     config,
     prismaSchema,
+    prismaWrites,
+    project,
   });
 
   // 7. Handle baseline

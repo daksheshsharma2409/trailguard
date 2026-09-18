@@ -10,20 +10,23 @@ import { rbac001 } from './rbac001.js';
 import { rbac002 } from './rbac002.js';
 import { rbac005 } from './rbac005.js';
 import { rbac007 } from './rbac007.js';
+import { aud001 } from './aud001.js';
 
 export { rbac001 } from './rbac001.js';
 export { rbac002 } from './rbac002.js';
 export { rbac005 } from './rbac005.js';
 export { rbac007 } from './rbac007.js';
+export { aud001 } from './aud001.js';
 
 /**
- * MVP rules enabled by default in Phase 2.
+ * MVP rules enabled by default in Phase 2 & Phase 4.
  */
 export const DEFAULT_RULES: Rule[] = [
   rbac001,
   rbac002,
   rbac005,
   rbac007,
+  aud001,
 ];
 
 /**
