@@ -17,6 +17,16 @@ model Student {
   teacherId String?
 }
 
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("STUDENT")
+  phone        String?
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+  updatedAt    DateTime @default(now()) @updatedAt @db.DateTime(3)
+}
+
 model AuditLog {
   seq         BigInt   @id
   model       String   @db.VarChar(191)

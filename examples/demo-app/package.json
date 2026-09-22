@@ -1,0 +1,14 @@
+{
+  "name": "trailguard-demo-app",
+  "version": "1.0.0",
+  "description": "Trailguard demonstration college Express + Prisma app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "prisma db push && tsx prisma/seed.ts",
+    "start": "tsx src/server.ts",
+    "scan": "trailguard scan",
+    "verify": "trailguard verify",
+    "ci": "trailguard ci"
+  }
+}

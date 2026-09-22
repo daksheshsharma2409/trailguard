@@ -26,7 +26,7 @@ export async function resolvePrismaClient(
   } catch {
     // 2. Fallback to dynamic import
     try {
-      const { PrismaClient } = (await import('@prisma/client')) as {
+      const { PrismaClient } = ((await import('@prisma/client')) as unknown) as {
         PrismaClient: new () => Record<string, unknown>;
       };
       clientConstructor = PrismaClient;

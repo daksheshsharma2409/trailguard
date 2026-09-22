@@ -256,7 +256,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
 ## Phase 6 — Demo app + e2e
 
-- [ ] **T6.1 [MVP] Demo app (fixed state)**
+- [x] **T6.1 [MVP] Demo app (fixed state)**
   - dep: T3.10, T2.14 · files: `examples/demo-app/**`
   - Do: `context.md §11`: auth (register/login/JWT), `authenticate`, `requireRole`, student CRUD via audited client, users admin routes, `auditContext()` first, `auditRouter({guard})`, redaction of `passwordHash`/`phone`, seed under `runWithAuditContext`, `README` with run steps; `trailguard.config.ts` for it.
   - Accept: `npm run demo:setup && npm run demo:start` works; login → create student → update marks → `GET /audit/history/Student/:id` shows before/after/diff and actor; `phone` shows `[REDACTED:xxxx]`; `trailguard scan` on it = **0 findings**.

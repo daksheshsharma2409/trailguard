@@ -20,11 +20,13 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./scan": {
       "import": "./dist/scan/index.js",
-      "types": "./dist/scan/index.d.ts"
+      "types": "./dist/scan/index.d.ts",
+      "default": "./dist/scan/index.js"
     },
     "./package.json": "./package.json"
   },
@@ -48,7 +50,12 @@
     "test:int": "vitest run --config vitest.integration.config.ts",
     "lint": "eslint src test --ext .ts",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "demo:setup": "prisma db push --schema examples/demo-app/prisma/schema.prisma && tsx examples/demo-app/prisma/seed.ts",
+    "demo:start": "tsx examples/demo-app/src/server.ts",
+    "demo:break": "git apply examples/demo-app/vulnerable.patch",
+    "demo:fix": "git apply -R examples/demo-app/vulnerable.patch",
+    "audit": "node bin/trailguard.js ci --config examples/demo-app/trailguard.config.ts"
   },
   "dependencies": {
     "commander": "^12.1.0",
@@ -71,15 +78,20 @@
   "devDependencies": {
     "@eslint/js": "^9.14.0",
     "@prisma/client": "^5.22.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.9.0",
     "@types/supertest": "^6.0.2",
+    "bcryptjs": "^3.0.3",
     "eslint": "^9.14.0",
     "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.3",
     "prettier": "^3.3.3",
     "prisma": "^5.22.0",
     "supertest": "^7.0.0",
     "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.14.0",
     "vitest": "^2.1.4"

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "fingerprint": "faca23f8e6be41296f2bc73fb71d54fb827305bcb0752ae99eaa54fb687e19aa",
+      "ruleId": "RBAC001",
+      "note": "Public registration endpoint"
+    },
+    {
+      "fingerprint": "3a52a6398e2a9c54b6305670a5dcff4d7379051bd939d27bb576b385e14df510",
+      "ruleId": "RBAC001",
+      "note": "Public login endpoint"
+    }
+  ]
+}
