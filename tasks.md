@@ -240,7 +240,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: load user's `@prisma/client` resolved **from cwd** (`createRequire(cwd)`); key from `process.env[keyEnv]`; `--checkpoints`; `--all`; human output `✔ valid (N records)` / `✖ broken at seq X: reason`.
   - Accept: valid DB → exit 0; tampered → exit 1 with seq + reason; missing key env or unreachable DB → exit 2 with clear message; key never printed.
 
-- [ ] **T5.2 [MVP] `trailguard ci`**
+- [x] **T5.2 [MVP] `trailguard ci`**
   - dep: T2.14, T5.1 · Accept: runs scan → verify → (drift if available), prints one summary table, exit = max(sub-exit codes); `--no-db` skips verify/drift with a visible warning; `--format` and `--out` apply to scan part.
 
 - [ ] **T5.3 [T2] `trailguard drift` + `trailguard export` + `trailguard checkpoint` commands**

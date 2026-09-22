@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
 import { scan } from './scan/index.js';
 import { runVerifyCommand, type VerifyCommandOptions } from './cli/verify-command.js';
+import { runCiCommand, type CiCommandOptions } from './cli/ci-command.js';
 import type { Risk } from './core/types.js';
 
 // Resolve package.json for the version string
@@ -122,7 +123,7 @@ program
 
 // ── ci ─────────────────────────────────────────────────────────────────────
 program
-  .command('ci')
+  .command('ci [src]')
   .description('Run scan → verify → drift; one summary, one exit code')
   .option('--config <path>', 'Path to trailguard.config.ts/js/json')
   .option('--no-db', 'Skip verify and drift (warn loudly)')
@@ -130,10 +131,39 @@ program
   .option('--out <file>', 'Write scan output to file')
   .option('--fail-on <level>', 'Threshold for scan findings', 'high')
   .option('--baseline <file>', 'Baseline file for scan')
-  .action((_opts: unknown) => {
-    // Implemented in T5.2
-    console.error('trailguard ci: not yet implemented');
-    process.exit(2);
+  .option('--update-baseline', 'Rewrite baseline from current findings')
+  .option('--checkpoints <file>', 'Path to checkpoints JSONL file')
+  .option('--key-env <name>', 'Env var holding the HMAC key', 'TRAILGUARD_KEY')
+  .option('--all', 'Collect all problems instead of stopping at first')
+  .option('--verbose', 'Verbose output')
+  .action(async (src: string | undefined, opts: CiCommandOptions) => {
+    try {
+      const outcome = await runCiCommand({
+        ...opts,
+        src: src ?? opts.src,
+      });
+
+      if (outcome.warning) {
+        console.warn(outcome.warning);
+      }
+
+      if (opts.verbose && outcome.scanOutput && !opts.out) {
+        process.stdout.write(outcome.scanOutput.report + '\n\n');
+      }
+
+      console.log(outcome.summaryTable);
+      process.exit(outcome.exitCode);
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(`trailguard ci error: ${err.message}`);
+        if (opts.verbose && err.stack) {
+          console.error(err.stack);
+        }
+      } else {
+        console.error('trailguard ci error:', String(err));
+      }
+      process.exit(2);
+    }
   });
 
 // ── export ─────────────────────────────────────────────────────────────────
