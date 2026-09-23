@@ -265,7 +265,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - dep: T6.1, T4.2 · files: `examples/demo-app/vulnerable.patch`, root `package.json` scripts
   - Accept: `npm run demo:break` applies cleanly; `trailguard scan` then reports **exactly 3 HIGH**: `RBAC002` (DELETE student), `RBAC001` (role patch), `AUD001` (bulk-reset raw write); exit 1. `npm run demo:fix` reverses; scan exit 0.
 
-- [ ] **T6.3 [MVP] Attacker scripts**
+- [x] **T6.3 [MVP] Attacker scripts**
   - dep: T3.7 · files: `scripts/attacker/rehash-chain.ts`, `truncate-tail.ts`
   - Accept: after `rehash-chain` (plain SHA-256 or wrong key, rewrites all rows + head) `trailguard verify` → exit 1 `HASH_MISMATCH`; after `truncate-tail` (deletes last rows + resets head) `verify` passes alone but `verify --checkpoints` → `TRUNCATION_DETECTED`.
 
