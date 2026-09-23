@@ -261,7 +261,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §11`: auth (register/login/JWT), `authenticate`, `requireRole`, student CRUD via audited client, users admin routes, `auditContext()` first, `auditRouter({guard})`, redaction of `passwordHash`/`phone`, seed under `runWithAuditContext`, `README` with run steps; `trailguard.config.ts` for it.
   - Accept: `npm run demo:setup && npm run demo:start` works; login → create student → update marks → `GET /audit/history/Student/:id` shows before/after/diff and actor; `phone` shows `[REDACTED:xxxx]`; `trailguard scan` on it = **0 findings**.
 
-- [ ] **T6.2 [MVP] `vulnerable.patch` + break/fix scripts**
+- [x] **T6.2 [MVP] `vulnerable.patch` + break/fix scripts**
   - dep: T6.1, T4.2 · files: `examples/demo-app/vulnerable.patch`, root `package.json` scripts
   - Accept: `npm run demo:break` applies cleanly; `trailguard scan` then reports **exactly 3 HIGH**: `RBAC002` (DELETE student), `RBAC001` (role patch), `AUD001` (bulk-reset raw write); exit 1. `npm run demo:fix` reverses; scan exit 0.
 

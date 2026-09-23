@@ -1,0 +1,42 @@
+diff --git a/examples/demo-app/src/routes/students.ts b/examples/demo-app/src/routes/students.ts
+index 8bd487b..31f56e3 100644
+--- a/examples/demo-app/src/routes/students.ts
++++ b/examples/demo-app/src/routes/students.ts
+@@ -78,8 +78,8 @@ studentsRouter.patch('/:id', authenticate, requireRole('ADMIN', 'TEACHER'), asyn
+   res.json({ student });
+ });
+ 
+-// Delete a student (ADMIN or TEACHER)
+-studentsRouter.delete('/:id', authenticate, requireRole('ADMIN', 'TEACHER'), async (req, res) => {
++// Delete a student (ADMIN or TEACHER) - VULNERABLE: lost requireRole (RBAC002)
++studentsRouter.delete('/:id', authenticate, async (req, res) => {
+   const id = req.params.id ?? '';
+ 
+   const student = await auditClient.student.delete({
+@@ -88,3 +88,11 @@ studentsRouter.delete('/:id', authenticate, requireRole('ADMIN', 'TEACHER'), asy
+ 
+   res.json({ message: 'Student deleted successfully', student });
+ });
++
++// Bulk reset all marks - VULNERABLE: direct prisma write bypassing audit client (AUD001)
++studentsRouter.post('/bulk-reset', authenticate, requireRole('ADMIN'), async (_req, res) => {
++  await prisma.student.updateMany({
++    data: { marks: 0 },
++  });
++  res.json({ message: 'All student marks reset to 0' });
++});
+diff --git a/examples/demo-app/src/routes/users.ts b/examples/demo-app/src/routes/users.ts
+index da38ccb..8390bbe 100644
+--- a/examples/demo-app/src/routes/users.ts
++++ b/examples/demo-app/src/routes/users.ts
+@@ -23,8 +23,8 @@ usersRouter.get('/', authenticate, requireRole('ADMIN'), async (_req, res) => {
+   res.json({ users });
+ });
+ 
+-// Update user role (ADMIN only)
+-usersRouter.patch('/:id/role', authenticate, requireRole('ADMIN'), async (req, res) => {
++// Update user role (ADMIN only) - VULNERABLE: lost authenticate (RBAC001)
++usersRouter.patch('/:id/role', requireRole('ADMIN'), async (req, res) => {
+   const id = req.params.id ?? '';
+   const { role } = req.body as { role?: string };
+ 

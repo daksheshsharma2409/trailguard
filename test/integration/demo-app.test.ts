@@ -142,4 +142,49 @@ describe('Integration: Demo App (Fixed State)', () => {
     const unsuppressed = scanOutput.findings.filter((f) => !f.suppressed);
     expect(unsuppressed.length).toBe(0);
   });
+
+  it('applies vulnerable.patch via demo:break, detects exactly 3 HIGH findings, and restores cleanly via demo:fix', async () => {
+    const { execSync } = await import('node:child_process');
+
+    try {
+      // 1. Break the demo app
+      execSync('npm run demo:break', { stdio: 'pipe' });
+
+      // 2. Scan should detect exactly 3 HIGH findings
+      const brokenScan = await scan({
+        config: demoConfigPath,
+        failOn: 'high',
+      });
+
+      expect(brokenScan.exitCode).toBe(1);
+      const unsuppressed = brokenScan.findings.filter((f) => !f.suppressed);
+      expect(unsuppressed.length).toBe(3);
+
+      const ruleIds = unsuppressed.map((f) => f.ruleId).sort();
+      expect(ruleIds).toEqual(['AUD001', 'RBAC001', 'RBAC002']);
+
+      const aud001 = unsuppressed.find((f) => f.ruleId === 'AUD001');
+      expect(aud001?.risk).toBe('high');
+      expect(aud001?.route?.path).toBe('/api/students/bulk-reset');
+
+      const rbac001 = unsuppressed.find((f) => f.ruleId === 'RBAC001');
+      expect(rbac001?.risk).toBe('high');
+      expect(rbac001?.route?.path).toBe('/api/users/:id/role');
+
+      const rbac002 = unsuppressed.find((f) => f.ruleId === 'RBAC002');
+      expect(rbac002?.risk).toBe('high');
+      expect(rbac002?.route?.path).toBe('/api/students/:id');
+    } finally {
+      // 3. Fix the demo app
+      execSync('npm run demo:fix', { stdio: 'pipe' });
+    }
+
+    // 4. Verify clean scan state restored
+    const fixedScan = await scan({
+      config: demoConfigPath,
+    });
+    expect(fixedScan.exitCode).toBe(0);
+    const fixedUnsuppressed = fixedScan.findings.filter((f) => !f.suppressed);
+    expect(fixedUnsuppressed.length).toBe(0);
+  });
 });
