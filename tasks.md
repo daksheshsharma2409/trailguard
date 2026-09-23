@@ -269,7 +269,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - dep: T3.7 · files: `scripts/attacker/rehash-chain.ts`, `truncate-tail.ts`
   - Accept: after `rehash-chain` (plain SHA-256 or wrong key, rewrites all rows + head) `trailguard verify` → exit 1 `HASH_MISMATCH`; after `truncate-tail` (deletes last rows + resets head) `verify` passes alone but `verify --checkpoints` → `TRUNCATION_DETECTED`.
 
-- [ ] **T6.4 [MVP] End-to-end demo test + `docs/DEMO.md`**
+- [x] **T6.4 [MVP] End-to-end demo test + `docs/DEMO.md`**
   - dep: T6.2, T6.3 · Accept: a vitest e2e (skipped without DB) executes the seven-step demo from `context.md`/README programmatically (break → scan fails → fix → scan passes → write → verify ok → tamper → verify fails → rehash → fails → truncate → checkpoint catches → drift catches); `docs/DEMO.md` has the human script with exact commands and expected output snippets.
 
 - [ ] **T6.5 [T2] Drift demo step**
