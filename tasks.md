@@ -282,7 +282,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T7.1 [MVP] Coverage + perf gates**
   - dep: Phases 2–4 · Accept: coverage ≥ 80% lines on `scan/**` (excl. reporters), `runtime/**`, `core/**`; `scan()` on demo app < 3s in a test; coverage threshold enforced in vitest config.
 
-- [ ] **T7.2 [MVP] README (full)**
+- [x] **T7.2 [MVP] README (full)**
   - dep: T6.4 · Accept: sections in order — problem + 5-line vulnerable example · what it does/doesn't · quickstart (static + runtime) · rules table · config reference · matrix explanation + caveat · audit log design + threat model summary (tamper-**evident**) · CI snippet · comparison table (ESLint security plugins, route dumpers, generic Prisma audit-log libs/extensions, APM — list what *they* do well, state the gap honestly) · architecture diagram · limitations (all 8 from `context.md §14`) · roadmap. Includes a **novelty check** subsection: commands you ran (`npm search express rbac audit`, `npm search prisma audit`, GitHub code search) and a 3-sentence gap statement with findings.
 
 - [ ] **T7.3 [MVP] `docs/THREAT_MODEL.md` + `docs/ARCHITECTURE.md`**

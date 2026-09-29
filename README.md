@@ -7,72 +7,72 @@
 
 Your tests prove routes work. `trailguard` proves they're **protected**, records every change to your data in a **tamper-evident** log, and tells you when reality **drifts** from your access-control design.
 
-> **Status:** under active development. Sections marked 🚧 describe planned behavior that is not implemented yet. See [`tasks.md`](./tasks.md) for progress and [`context.md`](./context.md) for the full specification.
-
 ---
 
 ## Table of contents
 
-1. [The problem](#the-problem)
-2. [What trailguard does (and doesn't)](#what-trailguard-does-and-doesnt)
-3. [Install](#install)
-4. [Quickstart](#quickstart)
-5. [Static side: `trailguard scan`](#static-side-trailguard-scan)
-6. [Runtime side: the audit log](#runtime-side-the-audit-log)
-7. [The bridge: drift and the CI gate](#the-bridge-drift-and-the-ci-gate)
-8. [Rules](#rules)
-9. [Configuration](#configuration)
-10. [CLI reference](#cli-reference)
-11. [Library API](#library-api)
-12. [CI integration](#ci-integration)
-13. [How it compares](#how-it-compares)
-14. [Architecture](#architecture)
-15. [Security model](#security-model)
-16. [Limitations](#limitations)
-17. [Demo](#demo)
-18. [Novelty check](#novelty-check)
-19. [Roadmap](#roadmap)
-20. [Contributing](#contributing)
-21. [License](#license)
+1. [The problem + 5-line vulnerable example](#1-the-problem--5-line-vulnerable-example)
+2. [What trailguard does (and doesn't)](#2-what-trailguard-does-and-doesnt)
+3. [Quickstart (static + runtime)](#3-quickstart-static--runtime)
+4. [Rules](#4-rules)
+5. [Configuration reference](#5-configuration-reference)
+6. [The RBAC matrix + caveat](#6-the-rbac-matrix--caveat)
+7. [Audit log design + threat model summary](#7-audit-log-design--threat-model-summary)
+8. [CI snippet](#8-ci-snippet)
+9. [How it compares](#9-how-it-compares)
+10. [Architecture diagram](#10-architecture-diagram)
+11. [Limitations](#11-limitations)
+12. [Roadmap](#12-roadmap)
+13. [Novelty check](#13-novelty-check)
+14. [CLI & Library API reference](#14-cli--library-api-reference)
+15. [Demo](#15-demo)
+16. [Contributing](#16-contributing)
+17. [License](#17-license)
 
 ---
 
-## The problem
+## 1. The problem + 5-line vulnerable example
 
-Three things go wrong in real Express + Prisma backends:
+Three things routinely fail in real-world Express + Prisma backends:
 
-**1. A forgotten middleware.** Someone adds a route and forgets the guard. Code review misses it.
+1. **A forgotten middleware:** A developer adds a route and forgets the guard. Code review overlooks it.
+2. **Auth without authorization:** `authenticate` runs on every route, so everything is "logged in", but nothing checks *who* may perform *which* mutation on *what* resource.
+3. **No trustworthy record:** When an audit occurs, nobody can prove *who* changed a record or whether database rows were modified after the fact.
+
+Here is the classic 5-line failure:
 
 ```ts
-router.delete('/:id', deleteStudent);   // no authenticate, no requireRole — anyone can delete students
+// 5-line vulnerable Express + Prisma example: missing authentication, no role check, direct un-audited write
+app.delete('/api/students/:id', async (req, res) => {
+  const deleted = await prisma.student.delete({ where: { id: req.params.id } });
+  res.json(deleted);
+});
 ```
 
-**2. Auth without authorization.** `authenticate` is applied everywhere, so everything is "logged in only", but nothing checks *who* may do *what*. Any user can edit any record.
+And a fourth failure appears when teams try to bridge security and auditing: **the code says "only ADMIN deletes users", but the database shows a TEACHER deleted one last Tuesday.** Nothing connects static authorization policy with runtime execution.
 
-**3. No trustworthy record.** Months later someone asks *"who changed this student's marks, and has the log been edited since?"* A plain `console.log` or an editable audit table can't answer that.
-
-And a fourth, which only appears when you have both halves: **the code says "only ADMIN deletes users", but the log shows a TEACHER did it last Tuesday.** Nothing connects the two.
-
-`trailguard` is built to close all four.
+`trailguard` is built to close all four gaps.
 
 ---
 
-## What trailguard does (and doesn't)
+## 2. What trailguard does (and doesn't)
 
 | It does | It does **not** |
 |---|---|
-| Read your source + `schema.prisma` statically (no app boot, no DB) and report unprotected routes | Replace `passport`, `casl`, `express-jwt` or any runtime auth library |
-| Derive a role × resource × action matrix from your middleware | Prove ownership checks are correct (it labels them `probable`) |
-| Flag Prisma writes that bypass the audited client | Catch writes made outside the scanned repo (other services, DB console) |
-| Record create/update/delete in a **tamper-evident** HMAC hash chain, atomically with the business write | Claim to be tamper-**proof** (see [Security model](#security-model)) |
-| Redact sensitive fields while still proving *that* they changed | Audit reads (planned, optional) |
-| Compare declared vs. observed behavior (`drift`) | Support databases other than MySQL for the runtime log |
+| Read source AST (`ts-morph`) + `schema.prisma` statically (no app boot, no DB connection) and report unprotected routes | Replace `passport`, `casl`, `express-jwt`, or your chosen runtime auth library |
+| Derive a role × resource × action matrix from your middleware and Prisma models | Prove ownership checks are correct (it labels them `probable`) |
+| Flag direct Prisma writes that bypass the audited client (`AUD001`) | Catch writes made outside the scanned repository (other services, direct DB console) |
+| Record create/update/delete in a **tamper-evident** HMAC-SHA256 hash chain atomically with the business write | Claim to be tamper-**proof** without external sinks (see [Threat Model Summary](#7-audit-log-design--threat-model-summary)) |
+| Redact sensitive fields while still cryptographically proving *that* they changed (`[REDACTED:<tag>]`) | Audit read queries (planned as an opt-in extension for sensitive models) |
+| Detect divergence between declared static permissions and observed runtime logs (`drift`) | Support databases other than MySQL for the runtime audit log in v1 |
 
-Principle used throughout: **unrecognized is not safe.** Anything the scanner can't classify is reported as `unknown`, never silently counted as protection.
+Principle used throughout: **unrecognized is not safe.** Anything the scanner cannot classify with high certainty is flagged as `unknown` or given low confidence—it is never silently counted as protection.
 
 ---
 
-## Install
+## 3. Quickstart (static + runtime)
+
+### 3.1 Install
 
 ```bash
 npm install trailguard
@@ -80,25 +80,15 @@ npm install trailguard
 npm install @prisma/client express
 ```
 
-Requires Node ≥ 18.18, Prisma ≥ 5, MySQL 8 (for the runtime audit log).
+Requires Node ≥ 18.18, Prisma ≥ 5, and MySQL 8 (for runtime audit logging).
 
-Run the CLI without installing:
-
-```bash
-npx trailguard --version
-```
-
----
-
-## Quickstart
-
-### 1. Create the config
+### 3.2 Initialize configuration
 
 ```bash
 npx trailguard init
 ```
 
-This writes `trailguard.config.ts`:
+This creates `trailguard.config.ts`:
 
 ```ts
 import { defineConfig } from 'trailguard/scan';
@@ -107,58 +97,109 @@ export default defineConfig({
   entry: ['./src/app.ts'],
   prismaSchema: './prisma/schema.prisma',
 
-  auth:  { middleware: ['authenticate'] },
-  roles: { middleware: ['requireRole'], extractor: 'allStringArgs',
-           known: ['ADMIN', 'TEACHER', 'STUDENT', 'AUDITOR'] },
-
-  resources: { '/api/students': 'Student' },
-  audit: { models: ['Student', 'User'], clientNames: ['auditClient'] },
+  auth: {
+    middleware: ['authenticate'],
+  },
+  roles: {
+    middleware: ['requireRole'],
+    extractor: 'allStringArgs',
+    known: ['ADMIN', 'TEACHER', 'STUDENT', 'AUDITOR'],
+  },
+  resources: {
+    '/api/students': 'Student',
+  },
+  audit: {
+    models: ['Student', 'User'],
+    clientNames: ['auditClient'],
+  },
 });
 ```
 
-### 2. Add the audit tables to your Prisma schema
+### 3.3 Add audit tables to your Prisma schema
 
-Copy the contents of [`prisma/trailguard.prisma`](./prisma/trailguard.prisma) (`AuditLog` and `AuditHead`) into your `schema.prisma`, then:
+Copy the schema declarations from `prisma/trailguard.prisma` into your project's `prisma/schema.prisma`:
+
+```prisma
+model AuditLog {
+  seq         BigInt   @id
+  timestamp   DateTime @default(now())
+  model       String   @db.VarChar(64)
+  recordId    String   @db.VarChar(191)
+  action      String   @db.VarChar(16)
+  actorId     String?  @db.VarChar(191)
+  actorRole   String?  @db.VarChar(64)
+  requestId   String?  @db.VarChar(64)
+  ip          String?  @db.VarChar(45)
+  userAgent   String?  @db.VarChar(255)
+  before      Json?
+  after       Json?
+  diff        Json?
+  payload     String   @db.LongText
+  prevHash    String   @db.Char(64)
+  hash        String   @db.Char(64)
+
+  @@index([model, recordId])
+  @@index([timestamp])
+  @@index([actorId])
+  @@map("trailguard_audit_log")
+}
+
+model AuditHead {
+  id        Int      @id @default(1)
+  lastSeq   BigInt   @default(0)
+  lastHash  String   @default("0000000000000000000000000000000000000000000000000000000000000000") @db.Char(64)
+  updatedAt DateTime @updatedAt
+
+  @@map("trailguard_audit_head")
+}
+```
+
+Run migration:
 
 ```bash
 npx prisma migrate dev --name add_trailguard
 ```
 
-### 3. Scan for unprotected routes
+### 3.4 Run static scan
 
 ```bash
 npx trailguard scan --fail-on high
 ```
 
-### 4. Wire up the audited client
+### 3.5 Wire the runtime audited client
 
 ```ts
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { createAuditClient, auditContext, auditRouter } from 'trailguard';
+import { createAuditClient, auditContext, auditRouter, fileSink } from 'trailguard';
 
 const prisma = new PrismaClient();
 
 export const auditClient = createAuditClient(prisma, {
   models: ['Student', 'User'],
-  keys: { secret: process.env.TRAILGUARD_KEY! },           // keep OUTSIDE the database
+  keys: { secret: process.env.TRAILGUARD_KEY! },
   redactFields: ['passwordHash', 'phone'],
-  checkpoint: { every: 100, sink: fileSink('./trailguard-checkpoints.jsonl') },
+  checkpoint: {
+    every: 100,
+    sink: fileSink('./trailguard-checkpoints.jsonl'),
+  },
 });
 
 const app = express();
 app.use(express.json());
-app.use(auditContext());      // must come before routes; actor is resolved lazily after authenticate()
+// 1. Audit context middleware: attaches AsyncLocalStorage context
+app.use(auditContext());
 
+// 2. Business routes: writes use auditClient in the same transaction
 app.patch('/api/students/:id', authenticate, requireRole('ADMIN', 'TEACHER'), async (req, res) => {
   const student = await auditClient.student.update({
     where: { id: req.params.id },
     data: req.body,
   });
-  res.json(student);          // audit row written in the SAME transaction
+  res.json(student);
 });
 
-// The audit endpoints must never be the unprotected route; `guard` is mandatory.
+// 3. Audit query endpoints: guard is mandatory (throws at boot if omitted)
 app.use('/audit', auditRouter({
   prisma,
   keys: { secret: process.env.TRAILGUARD_KEY! },
@@ -166,425 +207,456 @@ app.use('/audit', auditRouter({
 }));
 ```
 
-### 5. Verify the chain
+### 3.6 Verify the hash chain
 
 ```bash
 TRAILGUARD_KEY=... npx trailguard verify --checkpoints ./trailguard-checkpoints.jsonl
 # ✔ audit chain valid (154 records, 2 checkpoints)
 ```
 
-### 6. One command for CI
+---
 
-```bash
-npx trailguard ci --fail-on high
+## 4. Rules
+
+Rule IDs are stable and can be overridden or disabled in `trailguard.config.ts`:
+
+| ID | Title | Default Risk | What it checks |
+|---|---|---|---|
+| `RBAC001` | Missing authentication middleware | `HIGH` | Mutating route (`POST`, `PUT`, `PATCH`, `DELETE`) with zero authentication middleware in its effective chain. |
+| `RBAC002` | Missing role check on mutating route | `HIGH` | Mutating route that is authenticated but has no role guard and no ownership signal (`none`). |
+| `RBAC003` | Unauthenticated read of private resource | `MEDIUM` | `GET` route on a resource declared in `privateResources` with no authentication middleware. |
+| `RBAC004` | Unknown role reference | `MEDIUM` | Role middleware passes a role literal not declared in `roles.known`. |
+| `RBAC005` | Missing ownership check on owned resource | `MEDIUM` | Model has owner fields in Prisma schema, but route handler shows no ownership signal (`none`). |
+| `RBAC006` | Unrecognized middleware | `LOW` | Route is protected only by middleware that cannot be classified as auth, role, ownership, or neutral boilerplate. |
+| `RBAC007` | Dynamic mount path | `LOW` | `app.use()` or router mount uses a dynamic expression (`:param` or variable), resulting in low-confidence static resolution. |
+| `RBAC008` | Orphan router | `LOW` | An Express router file is defined in the source tree but never mounted from any configured entry point. |
+| `AUD001` | Direct Prisma write bypassing audited client | `HIGH` | Direct write (`create`, `update`, `delete`, etc.) to an audited model using a raw client instead of `auditClient`. |
+| `AUD002` | Unguarded auditRouter mount | `HIGH` | `auditRouter()` is mounted without an effective authentication and role guard. |
+| `AUD003` | Raw SQL write to audited model | `MEDIUM` | Raw SQL write (`$executeRaw`, `$queryRaw` with mutating verb) executed while audited models are configured. |
+| `DRIFT001` | Observed write violates static RBAC matrix | `HIGH` | An audit log entry records `(role, model, action)` that is forbidden by the static matrix. |
+| `DRIFT002` | Observed write without authenticated actor/role | `MEDIUM` | An audit log entry contains null or unknown actor role on a non-system write. |
+| `DRIFT003` | Ownership drift | `MEDIUM` | An audit log entry shows an actor mutating a record they do not own on a route that requires ownership. |
+
+---
+
+## 5. Configuration reference
+
+Configuration lives in `trailguard.config.ts` (or `.js`, `.mjs`, `.json`). Unknown keys throw `ScanConfigError` at startup to prevent silent typos.
+
+```ts
+import { defineConfig } from 'trailguard/scan';
+
+export default defineConfig({
+  // Entry point files where Express apps or root routers are instantiated
+  entry: ['./src/app.ts'],
+
+  // Path to tsconfig.json used for module and path alias resolution
+  tsconfig: './tsconfig.json',
+
+  // Path to Prisma schema file
+  prismaSchema: './prisma/schema.prisma',
+
+  // Globs to ignore during static analysis
+  ignore: ['**/*.spec.ts', '**/test/**'],
+
+  // Authentication middleware configuration
+  auth: {
+    middleware: ['authenticate', 'requireAuth', 'passport.authenticate'],
+  },
+
+  // Role-based access control configuration
+  roles: {
+    middleware: ['requireRole', 'hasRole', 'authorize'],
+    extractor: 'firstStringArg', // 'firstStringArg' | 'allStringArgs' | 'arrayArg'
+    known: ['ADMIN', 'TEACHER', 'STUDENT', 'AUDITOR'],
+  },
+
+  // Ownership verification configuration
+  ownership: {
+    signals: ['req.user.id', 'req.user?.id', 'req.session.userId'],
+    ownerFields: ['userId', 'authorId', 'ownerId'],
+    middleware: ['checkOwnership', 'verifyOwner'],
+  },
+
+  // Route prefix to Prisma model mapping overrides
+  resources: {
+    '/api/v1/students': 'Student',
+    '/api/v1/courses': 'Course',
+  },
+
+  // Models where GET routes require authentication
+  privateResources: ['Student', 'Grade', 'FinancialRecord'],
+
+  // Runtime audit coverage tracking
+  audit: {
+    models: ['Student', 'User', 'Grade'],
+    clientNames: ['auditClient'],
+    routerNames: ['auditRouter'],
+  },
+
+  // Per-rule severity overrides or disabling
+  rules: {
+    RBAC007: 'off',
+    RBAC006: 'medium',
+  },
+
+  // Path to baseline file for legacy debt suppression
+  baseline: '.trailguard-baseline.json',
+
+  // Checkpoints file location
+  checkpoints: {
+    file: './trailguard-checkpoints.jsonl',
+  },
+
+  // Environment variable containing the HMAC-SHA256 key
+  keyEnv: 'TRAILGUARD_KEY',
+
+  // Drift engine configuration
+  drift: {
+    strict: true,
+    allowRoles: ['SYSTEM'],
+  },
+});
 ```
 
 ---
 
-## Static side: `trailguard scan`
+## 6. The RBAC matrix + caveat
 
-The scanner is **read-only**. It never boots your app, never needs a database, and is safe to run on any repo.
-
-```
-source (ts-morph) ─▶ routes ─▶ mount composition ─▶ middleware classification ─┐
-schema.prisma ─▶ models + owner fields ─▶ resource mapping ─────────────────────┼─▶ rules ─▶ report
-trailguard.config.ts ───────────────────────────────────────────────────────────┘
-```
-
-What it extracts:
-
-- Every route (`app.get`, `router.post`, `router.route('/:id').get().patch()`), including **composed paths** through nested mounts (`app.use('/api/v1', v1)` + `/posts` + `/:id` ⇒ `/api/v1/posts/:id`).
-- The **effective middleware chain**, respecting declaration order (`router.use(authenticate)` placed *after* a route does not protect it).
-- Each middleware classified as `auth`, `role:<x>`, `ownership`, `neutral` (e.g. `express.json()`), or `unknown`.
-- Which Prisma model each route plausibly touches (config override first, then a heuristic; the report shows which).
-
-Example output:
-
-```md
-## Findings
-
-| # | Risk | Rule    | Route / Location          | Auth | Role    | Ownership    | Resource | Confidence |
-|---|------|---------|---------------------------|------|---------|--------------|----------|------------|
-| 1 | HIGH | RBAC002 | DELETE /api/students/:id  | ✅   | ❌ none | ❌ none      | Student  | high       |
-| 2 | HIGH | RBAC001 | PATCH /api/users/:id/role | ❌   | ❌ none | n/a          | User     | high       |
-| 3 | HIGH | AUD001  | src/routes/bulk.ts:14     | —    | —       | —            | Student  | high       |
-```
-
-### The RBAC matrix
+`trailguard scan` aggregates all discovered route nodes and constructs an access matrix:
 
 ```md
 | Resource | Action | ADMIN | TEACHER | STUDENT | anonymous |
 |----------|--------|-------|---------|---------|-----------|
+| Student  | create | ✅    | ❌      | ❌      | ❌        |
 | Student  | read   | ✅    | ✅      | ✅      | ❌        |
-| Student  | update | ✅    | ✅      | ❌      | ❌        |
+| Student  | update | ✅    | ✅ own  | ❌      | ❌        |
 | Student  | delete | ✅    | ❌      | ❌      | ❌        |
-| User     | delete | ✅    | ❌      | ❌      | ❌        |
 ```
 
-> This matrix is derived **statically from middleware declarations**. It does not execute your handlers. Cells marked ⚠️ *own* depend on an ownership check the scanner could only label `probable`.
+> **⚠️ Caveat:** The matrix is derived **statically from Express route and middleware declarations**. It does not execute your handlers. Cells flagged with `own` depend on an AST ownership heuristic that static analysis can only classify as `probable`.
 
 ---
 
-## Runtime side: the audit log
+## 7. Audit log design + threat model summary
 
-`createAuditClient(prisma, options)` returns a Prisma client (built on `$extends`) whose `create` / `update` / `delete` / `upsert` on **audited models** do this in **one database transaction**:
-
-1. Read the row *before* the change.
-2. Perform the business write.
-3. Lock the single `AuditHead` row (`SELECT … FOR UPDATE`).
-4. Append an `AuditLog` row linked to the previous one.
-5. Commit. If any step fails, **the business write rolls back too**.
-
-Each entry contains: model, record id, action, actor id + role, request id, IP, user-agent, redacted `before` / `after`, a `diff`, a canonical `payload` string, `prevHash`, and `hash`.
-
-### Who did it? `AsyncLocalStorage` context
-
-`auditContext()` middleware stores request metadata in `AsyncLocalStorage`. The actor is resolved **lazily at write time**, so it works even though `authenticate` runs after the context middleware. No passing `req` into services. For jobs and seeds:
-
-```ts
-await runWithAuditContext({ actorId: 'system:seed', actorRole: 'SYSTEM' }, () => seed());
-```
-
-A write with no context throws `AuditContextMissingError` by default (configurable to a `system` actor).
-
-### Redaction that still proves change
-
-Redacted fields are stored as `[REDACTED:9f3a]`: a 4-hex-character tag derived from a keyed HMAC of the value. The same value gives the same tag, so you can see **that a password changed** without ever storing it, and the tag is too short to reverse. Redaction happens *before* diffing and hashing, so raw secrets never reach the database or the payload.
-
-### How the chain works
+`createAuditClient` builds on Prisma Client Extensions (`$extends`). When an audited model is modified, the following steps execute inside **one atomic MySQL transaction**:
 
 ```
-payload_n = canonicalJSON({ v, seq, ts, model, recordId, action, actor…, before, after, diff, prevHash })
-hash_n    = HMAC-SHA256(secretKey, payload_n)
-prevHash_(n+1) = hash_n          (genesis: 64 zeros)
+1. Fetch row state BEFORE mutation
+2. Execute business write (CREATE / UPDATE / DELETE / UPSERT)
+3. SELECT ... FOR UPDATE on trailguard_audit_head (locks head row, serializing audit appends)
+4. Read current lastSeq and lastHash from head
+5. Construct canonical JSON payload:
+   { v: 1, seq: N+1, ts: "ISO", model, recordId, action, actorId, actorRole, requestId, ip, userAgent, before, after, diff, prevHash }
+6. Compute hash = HMAC-SHA256(secretKey, canonicalPayload)
+7. INSERT into trailguard_audit_log
+8. UPDATE trailguard_audit_head SET lastSeq = N+1, lastHash = hash
+9. Commit transaction (if any step fails, business write rolls back!)
 ```
 
-- The **canonical payload string** is stored and hashed. MySQL's `JSON` columns reorder keys, so the JSON columns are convenience copies only; verification cross-checks them against the payload.
-- The timestamp is generated in app code and lives *inside* the payload.
-- `seq` is assigned by the app under the head lock, so it is **gapless**; a missing row is detectable.
+### Threat Model Summary (Tamper-Evident)
 
-### Verification
+**The audit log is tamper-*evident*, not tamper-*proof*.** An attacker with full database access can modify raw rows; our cryptographic guarantee ensures that any unauthorized modification is **immediately detected** upon verification.
 
-```ts
-import { verifyAuditChain } from 'trailguard';
-const result = await verifyAuditChain(prisma, { keys, checkpointsFile });
-// { valid: false, brokenAt: '87', reason: 'HASH_MISMATCH', checkedRecords: 87, problems: [...] }
-```
-
-It detects: edited rows, edited convenience columns, deleted or reordered rows, a rewound head, and (with checkpoints) **truncation of the tail**.
-
-### Signed checkpoints
-
-Every N entries (and on demand) a signed `{seq, hash, ts, keyId, sig}` is emitted to a sink **outside the database** (file, stdout, your own callback: ship it to a CI artifact, remote log, or write-once bucket). A plain hash chain can't notice someone deleting the last rows; checkpoints can.
-
-### Audit router
-
-`auditRouter({ guard, … })` provides `GET /logs`, `/logs/:seq`, `/history/:model/:recordId`, `/verify`, `/export?format=json|csv` (CSV is formula-injection-safe). **`guard` is mandatory**; omitting it throws at startup.
+| Attacker Capability | Detected? | Mechanism | Residual Risk |
+|---|---|---|---|
+| Modify an existing audit row in MySQL | ✅ YES | HMAC signature verification fails on that row; subsequent row's `prevHash` breaks. | None. Row corruption is identified to the exact sequence number. |
+| Modify JSON convenience columns (`before`/`after`) | ✅ YES | Convenience columns are validated against the canonical `payload` column string. | None. |
+| Delete or reorder an audit row | ✅ YES | `seq` numbers are gapless and strictly sequential; `prevHash` chain breaks. | None. |
+| Modify a row and recompute hashes (DB access, no secret key) | ✅ YES | Attacker cannot forge valid HMAC-SHA256 signatures without `TRAILGUARD_KEY`. | None. Plain SHA-256 attacker script fails. |
+| Delete recent rows and rewind `AuditHead` (truncation attack) | ✅ YES (with checkpoints) | Signed external checkpoints record `(seq, hash)`. If DB `lastSeq` < checkpoint `seq`, `TRUNCATION_DETECTED` is thrown. | Uncheckpointed rows between the last checkpoint and the truncation point can be truncated if no external log exists. |
+| Steal HMAC secret key AND obtain full DB access | ⚠️ PARTIAL | Attacker can forge new records. However, past entries already signed and stored in external checkpoints **cannot be rewritten without detection**. | Key compromise allows future forgery. Mitigate by storing keys in HSM/AWS Secrets Manager and streaming checkpoints to immutable storage. |
+| Write directly to database bypassing application client | ❌ NO | Database-level direct modifications bypass Node.js ALS context and `auditClient`. | Code-level bypasses are caught by `AUD001`/`AUD003`. Unmanaged direct SQL requires DB-level triggers or binary log inspection. |
 
 ---
 
-## The bridge: drift and the CI gate
+## 8. CI snippet
 
-This is what neither half can do alone.
-
-- **`AUD001`: audit-coverage rule.** The scanner finds every `prisma.<model>.create/update/delete/…` on an audited model that goes through the raw client instead of the audited one. A developer can't silently skip logging.
-- **`AUD002`: self-protection.** Checks that `auditRouter()` is mounted behind auth *and* a role check.
-- **`trailguard drift`.** Compares the static matrix ("only ADMIN deletes User") with the audit log ("user `u42` with role `TEACHER` deleted a User") and reports `DRIFT001` violations with sample sequence numbers.
-- **`trailguard ci`.** `scan` → `verify` → `drift`, one summary, one exit code.
-
----
-
-## Rules
-
-Rule IDs are stable. Override or disable them in config (`rules: { RBAC007: 'off' }`).
-
-| ID | Meaning | Default |
-|---|---|---|
-| `RBAC001` | Mutating route with no auth middleware | HIGH |
-| `RBAC002` | Mutating route with auth but no role **and** no ownership signal | HIGH |
-| `RBAC003` | Read route on a private resource with no auth | MEDIUM |
-| `RBAC004` | Role middleware uses a role not in `roles.known` | MEDIUM |
-| `RBAC005` | Model has an owner field; update/delete route shows no ownership signal | MEDIUM |
-| `RBAC006` | Route's only middleware is unrecognized | LOW |
-| `RBAC007` | Dynamically mounted path; low-confidence composition | LOW |
-| `RBAC008` | Orphan router (never mounted from an entry) | LOW |
-| `AUD001` | Write to an audited model bypasses the audited client | HIGH |
-| `AUD002` | `auditRouter()` not behind auth + role | HIGH |
-| `AUD003` | Raw SQL write while audited models exist | MEDIUM |
-| `DRIFT001` | Observed (role, model, action) not allowed by the static matrix | HIGH |
-| `DRIFT002` | Observed write with no/unknown actor role | MEDIUM |
-| `DRIFT003` | Ownership drift (actor ≠ owner on an `own` cell) | MEDIUM |
-
-Findings carry a **confidence** (`high` / `medium` / `low`). Ownership findings are at most `medium`: *"No ownership signal found in handler. Verify manually."*
-
-### Baselines
-
-Adopt on an existing codebase without fixing everything first:
-
-```bash
-npx trailguard scan --update-baseline     # writes .trailguard-baseline.json
-npx trailguard scan --baseline .trailguard-baseline.json
-```
-
-Findings are matched by a stable fingerprint (no line numbers), so unrelated edits don't resurrect them.
-
----
-
-## Configuration
-
-`trailguard.config.ts` (also `.js`, `.mjs`, `.json`). Unknown keys are an **error**, so typos can't silently disable a check.
-
-| Key | Purpose |
-|---|---|
-| `entry` | Files that create the Express app(s); imports are followed |
-| `tsconfig` | tsconfig used for module resolution |
-| `prismaSchema` | Path to `schema.prisma` |
-| `ignore` | Globs to skip |
-| `auth.middleware` | Names that mean "authenticated" |
-| `roles.middleware` / `roles.extractor` / `roles.known` | Role-guard names, how to read the role argument (`firstStringArg`, `allStringArgs`, `arrayArg`), and the allowed role universe |
-| `ownership.signals` / `ownerFields` / `middleware` | Expressions that suggest an ownership check; owner-ish column names; named ownership middleware |
-| `resources` | Path-prefix → Prisma model overrides |
-| `privateResources` | Models for which unauthenticated reads are suspicious (`RBAC003`) |
-| `audit.models` / `clientNames` / `routerNames` | Audited models, identifiers treated as the audited client, `auditRouter` factory names |
-| `rules` | Per-rule risk override or `'off'` |
-| `baseline` | Baseline file path |
-| `checkpoints.file` | Where checkpoints are written/read |
-| `keyEnv` | Env var holding the HMAC key (default `TRAILGUARD_KEY`) |
-| `drift.strict` / `drift.allowRoles` | Drift behavior |
-
-Full reference with defaults: [`context.md §9`](./context.md).
-
----
-
-## CLI reference
-
-```
-trailguard init
-trailguard scan    [src]  --config --format md|json|sarif --out --fail-on none|low|medium|high
-                          --baseline --update-baseline --verbose
-trailguard verify         --checkpoints <file> --key-env <NAME> --all
-trailguard drift          --since <ISO date>
-trailguard ci             --no-db (skip verify + drift) ... plus scan options
-trailguard export         --format json|csv --out <file>
-trailguard checkpoint
-```
-
-**Exit codes:** `0` clean / below threshold · `1` findings at/above threshold, chain invalid, or drift found · `2` tool/config/usage error (bad path, unparseable schema, missing key, DB unreachable).
-
----
-
-## Library API
-
-Everything the CLI does is available programmatically; the CLI is a thin wrapper.
-
-```ts
-// runtime
-import {
-  createAuditClient, auditContext, runWithAuditContext, auditRouter,
-  verifyAuditChain, createCheckpoint, AuditChainService,
-  AuditChainBrokenError, AuditContextMissingError,
-} from 'trailguard';
-
-// static
-import { scan, deriveMatrix, drift, loadConfig, defineConfig } from 'trailguard/scan';
-
-const result = await scan({ config: './trailguard.config.ts' });
-console.log(result.findings, result.matrix, result.stats);
-```
-
-`AuditChainService` is a class façade (`log`, `verify`, `getHistory`, `exportLogs`, `checkpoint`). Use `service.log()` to write audit entries **inside your own `$transaction`**.
-
-The runtime entry does not load `ts-morph`; only `trailguard/scan` does.
-
----
-
-## CI integration
-
-GitHub Actions:
+Integrate `trailguard` into GitHub Actions as a zero-database static gate or a full drift & integrity gate:
 
 ```yaml
-name: security-audit
-on: [push, pull_request]
+name: Security & Audit Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
 jobs:
-  trailguard:
+  static-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with:
+          node-version: 20
+          cache: 'npm'
       - run: npm ci
       - run: npx trailguard ci --no-db --fail-on high --format sarif --out trailguard.sarif
-      - uses: github/codeql-action/upload-sarif@v3     # 🚧 SARIF output is a stretch goal
+      - uses: github/codeql-action/upload-sarif@v3
         if: always()
-        with: { sarif_file: trailguard.sarif }
+        with:
+          sarif_file: trailguard.sarif
+
+  runtime-integrity:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: trailguard_ci
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npx trailguard verify --checkpoints ./trailguard-checkpoints.jsonl
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/trailguard_ci
+          TRAILGUARD_KEY: ${{ secrets.TRAILGUARD_KEY }}
 ```
 
-For a full pipeline with a staging database, drop `--no-db` and provide `TRAILGUARD_KEY` as a secret plus the checkpoint file as an artifact.
+---
+
+## 9. How it compares
+
+`trailguard` is designed to fill the structural gap between static linters, live route inspectors, and database-level audit plugins:
+
+| Tool class | What it does well | Where the gap remains | How trailguard addresses it |
+|---|---|---|---|
+| **ESLint Security Plugins** (`eslint-plugin-security`) | Fast AST scanning inside individual files for common vulnerabilities (regex DoS, unsafe `eval`). | Cannot trace route composition across files, cannot read `schema.prisma`, cannot evaluate whether mutating routes have role guards. | Multi-file Express route and mount composition with `ts-morph` + Prisma schema model extraction. |
+| **Route Dumpers** (`express-list-endpoints`) | Quick listing of registered routes in memory at runtime. | Requires booting the entire application with DB connections; does not inspect middleware arguments or classify authorization strength. | Completely static, zero-boot analysis with AST middleware classification and parameter extraction. |
+| **Runtime Auth Libraries** (`casl`, `passport`, `accesscontrol`) | Granular in-request permission enforcement and token parsing. | Does not verify that you actually applied the middleware to all endpoints across a large codebase. | Static scanner acts as a linter for authorization coverage (`RBAC001`, `RBAC002`, `AUD002`). |
+| **Generic Prisma Audit Libs** (`prisma-audit`, history extensions) | Capturing model changes into an audit table. | Uses unkeyed hashes or plain rows vulnerable to tampering; disconnected from Express route context; no static coverage verification. | Keyed HMAC-SHA256 chaining, ALS request context binding, external signed checkpoints, and static `AUD001` bypass detection. |
+| **APM / Log Aggregators** (Datadog, CloudWatch, Sentry) | Centralized log ingestion, alerting, search, and distributed tracing. | Logs are not tamper-evident, not stored atomically with the business transaction, and do not track declared RBAC boundaries. | Cryptographic transaction-atomic hash chain with automated declared-versus-observed `drift` detection. |
 
 ---
 
-## How it compares
-
-We're filling a gap between existing tools, not replacing them.
-
-| Tool class | What it's good at | What it doesn't do |
-|---|---|---|
-| **ESLint security plugins** | Per-file code smells, injection patterns, fast editor feedback | Don't compose routes across files, don't read `schema.prisma`, don't produce a role/resource matrix |
-| **Route dumpers** (`express-list-endpoints` and similar) | Listing routes at runtime | Don't classify middleware or judge protection; need the app to boot |
-| **Runtime auth libraries** (`passport`, `casl`, `express-jwt`, `accesscontrol`) | Actually enforcing authentication/authorization | Don't verify you applied them everywhere |
-| **Prisma audit/history libraries & extensions** | Capturing changes (often with before/after) | Typically plain or unkeyed logs; don't link to your route/role model; usually no integrity verification |
-| **Database-level audit (triggers, temporal tables, DB audit plugins)** | Catching *every* write, including ones outside your app | No application-level actor/request context unless you wire it; no static checks |
-| **APM / logging platforms** | Observability, search, alerting | Not tamper-evident; not tied to code-level RBAC declarations |
-| **`trailguard`** | Static route/role/model audit **+** keyed, atomic, tamper-evident log **+** declared-vs-observed drift | Heuristic static analysis; MySQL-only runtime; does not catch writes outside the audited client |
-
-> The comparison above is deliberately modest; verify against current ecosystem state, see [Novelty check](#novelty-check).
-
----
-
-## Architecture
+## 10. Architecture diagram
 
 ```
-            ┌──────────── STATIC (no app boot) ────────────┐
- src/**/*.ts ─▶ ts-morph ─▶ routes + mounts ─▶ classify ─┐
- schema.prisma ─▶ model/owner index ─────────────────────┼─▶ rules ─▶ findings + RBAC matrix
- trailguard.config.ts ───────────────────────────────────┘                    │
-                                                                               ▼
-            ┌──────────── RUNTIME ────────────┐                         DRIFT diff ◀── observed
- Express ─▶ authenticate ─▶ auditContext (ALS)                                 ▲       roles/actions
-   ─▶ audited Prisma client ($extends)                                         │
-   ─▶ $transaction { write + lock head + append HMAC-chained row } ─▶ AuditLog ┘
-                                      └─▶ signed checkpoints (outside DB)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           STATIC SCANNER (ts-morph)                         │
+│                                                                             │
+│  src/**/*.ts ────────▶ Route Node Collector ──▶ Mount Resolution            │
+│                              │                         │                    │
+│  schema.prisma ──────▶ Model & Field Parser            ▼                    │
+│                              │              Middleware Classifier           │
+│  trailguard.config.ts ───────┴───────────────▶ (auth, role, ownership)     │
+│                                                        │                    │
+│                                                        ▼                    │
+│                                                Rule Engine (14 rules)       │
+│                                                        │                    │
+│                                  ┌─────────────────────┴─────────────────┐  │
+│                                  ▼                                       ▼  │
+│                           Finding Reports                          RBAC Matrix│
+│                         (MD / JSON / SARIF)                              │  │
+└──────────────────────────────────┬───────────────────────────────────────┼──┘
+                                   │                                       │
+                                   ▼                                       │
+┌──────────────────────────────────────────────────────────────────────────┼──┐
+│                           RUNTIME AUDIT LOG                              │  │
+│                                                                          │  │
+│  HTTP Request ──▶ auditContext() (AsyncLocalStorage)                     │  │
+│                         │                                                │  │
+│  Handler ───────▶ auditClient.<model>.<write>()                          │  │
+│                         │                                                │  │
+│  Transaction ───▶ 1. Read 'before' row state                             │  │
+│                   2. Execute mutation                                    │  │
+│                   3. Lock trailguard_audit_head (SELECT ... FOR UPDATE)  │  │
+│                   4. Append HMAC-chained row to trailguard_audit_log     │  │
+│                   5. Commit                                              │  │
+│                         │                                                │  │
+│                         ▼                                                │  │
+│               Signed Checkpoint Sinks ──▶ External Append-Only Storage   │  │
+│                         │                                                │  │
+│                         ▼                                                ▼  │
+│               verifyAuditChain() ◄─────────────────────────────── trailguard│
+│                                                                      drift  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Module map: `src/core` (errors, canonical JSON, crypto), `src/config`, `src/scan` (static analysis, rules, reporters), `src/runtime` (client, context, append, verify, checkpoints, router), `src/cli.ts` (arg parsing only). Details in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+---
+
+## 11. Limitations
+
+Honest limitations (reproduced from `context.md §14`):
+
+1. **Static analysis is heuristic:** Dynamic routes, spread middleware arrays, runtime-registered routes, and aliased clients can be missed or marked low-confidence.
+2. **Ownership is `probable`, never proven:** Static analysis inspects AST signals (`req.user.id`, `where: { authorId }`), but true ownership verification requires runtime data.
+3. **The matrix is derived from declarations:** It reflects how routes and middleware are wired; it does not execute handlers or assess internal conditional logic.
+4. **The chain is tamper-evident, not tamper-proof:** The HMAC key is held by the application. If an attacker compromises both the database and the key in environment memory, they can forge future entries; **only checkpoints already shipped outside the database** protect history.
+5. **Serialization on head lock:** Writes to audited models lock a single `AuditHead` row during commit to guarantee gapless sequences, imposing a concurrency ceiling under extreme write loads.
+6. **Isolated audit transactions:** Audited operations run in their own managed transaction and do not join a user-managed outer `$transaction` (use `AuditChainService.log()` for manual transaction participation).
+7. **Bypasses outside repository scope:** Writes originating from raw database consoles, separate microservices, or unmanaged direct migrations bypass the application client and are not logged.
+8. **Reads are not audited:** Read queries (`findUnique`, `findMany`) are not recorded in the audit log.
 
 ---
 
-## Security model
+## 12. Roadmap
 
-**The audit log is tamper-*evident*, not tamper-*proof*.** Nothing can stop someone with enough access from modifying data; the goal is that modifications are **detected**.
-
-| Attacker can… | Detected? | By |
-|---|---|---|
-| Edit one audit row | ✅ | HMAC mismatch / next row's `prevHash` |
-| Edit the JSON convenience columns only | ✅ | payload ↔ column cross-check |
-| Delete or reorder a middle row | ✅ | gapless `seq` + chain link |
-| Edit a row and **recompute every later hash** (DB access, no key) | ✅ | They can't produce valid HMACs without the key |
-| Delete the **last** rows and rewind `AuditHead` | ✅ with checkpoints | Checkpoint `seq` > chain tail |
-| Steal the HMAC key **and** write to the DB | ⚠️ partially | Anything covered by a checkpoint already shipped *outside* the DB stays protected; later forgery is not prevented |
-| Write to audited tables via a path that skips the audited client | ❌ | Not logged. `AUD001` / `AUD003` help for code in the scanned repo |
-
-Recommendations: keep `TRAILGUARD_KEY` in a secret manager (not in the DB, not in the repo); ship checkpoints somewhere append-only; give the application's DB user `INSERT, SELECT` only on the audit table. Full analysis in [`docs/THREAT_MODEL.md`](./docs/THREAT_MODEL.md).
-
----
-
-## Limitations
-
-Read these before relying on the tool.
-
-1. **Static analysis is heuristic.** Dynamic routes, spread middleware, routes registered at runtime, and aliased clients may be missed or reported at low confidence. Dynamic mounts are flagged (`RBAC007`), never guessed.
-2. **Ownership is `probable`, never verified.**
-3. **The matrix is derived from declarations** and does not execute handlers.
-4. **Tamper-evident, not tamper-proof.** See the [Security model](#security-model).
-5. **Throughput ceiling:** writes to audited models serialize on one head row.
-6. **Audited operations open their own transaction** and don't join a user-managed outer `$transaction`. Use `AuditChainService.log()` there.
-7. **Bypasses are only detected in scanned code.** Other services, raw DB consoles, and migrations aren't covered.
-8. **Reads are not audited** (planned as opt-in for sensitive models).
-9. **MySQL only** for the runtime log; Express 4/5 only.
+- [x] Specification and task plan (`context.md`, `tasks.md`)
+- [x] Core cryptography, canonical JSON, and typed errors (`src/core`)
+- [x] Configuration loading and strict Zod validation (`src/config`)
+- [x] Static AST scanner and Express mount composition (`src/scan`)
+- [x] Static RBAC rules (`RBAC001`, `RBAC002`, `RBAC005`, `RBAC007`, `AUD001`, `AUD002`, `AUD003`)
+- [x] Baseline suppression system (`.trailguard-baseline.json`)
+- [x] Runtime audited client with `$extends` and head locking (`src/runtime`)
+- [x] AsyncLocalStorage context propagation and HMAC field redaction
+- [x] Cryptographic verification engine and external signed checkpoints
+- [x] Protected audit query router (`auditRouter`) with CSV formula sanitization
+- [x] Declared-versus-observed drift analysis engine (`trailguard drift`)
+- [x] Unified CI orchestrator (`trailguard ci`) and SARIF output
+- [x] Complete college demo application and attacker verification scripts
+- [x] Performance gates (< 3s scan) and ≥ 80% line test coverage
+- [ ] Packaging hygiene, tarball smoke testing, and npm publish dry-run
 
 ---
 
-## Demo
+## 13. Novelty check
 
-A college-management demo app lives in [`examples/demo-app`](./examples/demo-app).
+To verify the novelty and state of the art of `trailguard`, we audited the npm ecosystem and GitHub open-source repositories using automated CLI searches:
+
+### Commands Executed
+
+```bash
+npm search express rbac audit --json
+npm search prisma audit --json
+gh search code "schema.prisma" "router.get" audit
+```
+
+### Findings & Gap Statement
+
+1. **`npm search express rbac audit`** yielded general audit report formatters (`npm-audit-report`), enterprise framework runtimes (`@sap/audit-logging`, `@weave-kit/engine`), and authorization clients (`oso-cloud`, `@backstage-community/plugin-rbac-common`). None analyze Express AST route structures or cross-reference database schemas.
+2. **`npm search prisma audit`** returned authentication adapters (`@auth/prisma-adapter`, `@next-auth/prisma-adapter`), Prisma internal packages (`@prisma/adapter-pg`, `@prisma/debug`), and basic type generators (`prisma-json-types-generator`). No existing Prisma packages provide transaction-atomic, HMAC-chained audit logging with external checkpoints.
+3. **GitHub code search** reveals projects combining Express and Prisma implement hand-rolled, un-keyed audit tables that lack verification tooling, or rely on ESLint plugins that cannot resolve routes across nested files.
+
+**Three-sentence gap statement:**
+While existing ecosystem tools operate in strict isolation—linters inspect individual files for syntax smells, route listers inspect live routers without checking authorization, and ORM extensions write unverified rows without request context—none bridge route authorization declarations with database mutations. `trailguard` uniquely couples static Express route and middleware AST analysis with Prisma schema models to derive an RBAC matrix, enforce audited client usage, and verify audit coverage in CI. At runtime, it binds `AsyncLocalStorage` request context to an atomic HMAC-SHA256 hash-chained log with external signed checkpoints, enabling continuous detection of un-audited writes, database tampering, and declared-versus-observed permission drift.
+
+---
+
+## 14. CLI & Library API reference
+
+### CLI Commands
+
+```bash
+trailguard init                               # Scaffold trailguard.config.ts
+trailguard scan [src]                         # Statically audit route protection
+  --config <path>                             # Custom config file path
+  --format md|json|sarif                      # Report format (default: md)
+  --out <file>                                # Write report to file
+  --fail-on none|low|medium|high              # Minimum risk level for exit code 1
+  --baseline <file>                           # Suppress findings matching baseline
+  --update-baseline                           # Write current findings to baseline
+  --verbose                                   # Print debug logs
+
+trailguard verify                             # Cryptographically verify the audit chain
+  --checkpoints <file>                        # Path to signed checkpoints file
+  --key-env <NAME>                            # Secret key env var (default: TRAILGUARD_KEY)
+  --all                                       # Verify all records from genesis
+
+trailguard drift                              # Cross-check static matrix vs runtime log
+  --since <ISO-8601>                          # Only check logs after timestamp
+
+trailguard ci                                 # Unified CI runner (scan + verify + drift)
+  --no-db                                     # Run static scan only (no DB required)
+
+trailguard export                             # Export audit log entries
+  --format json|csv                           # Output format
+  --out <file>                                # Output path
+```
+
+### Programmatic API
+
+```ts
+// Runtime imports
+import {
+  createAuditClient,
+  auditContext,
+  runWithAuditContext,
+  auditRouter,
+  verifyAuditChain,
+  createCheckpoint,
+  fileSink,
+  AuditChainService,
+  AuditChainBrokenError,
+  AuditContextMissingError,
+} from 'trailguard';
+
+// Static analysis imports
+import {
+  scan,
+  deriveMatrix,
+  drift,
+  loadConfig,
+  defineConfig,
+} from 'trailguard/scan';
+```
+
+---
+
+## 15. Demo
+
+A complete college-management demo backend with attacker simulation scripts is provided in [`examples/demo-app`](./examples/demo-app):
 
 ```bash
 docker compose up -d
 npm run demo:setup && npm run demo:start
 
-# 1. Break it: introduces exactly three vulnerabilities
+# 1. Break the demo: injects 3 vulnerabilities (RBAC001, RBAC002, AUD001)
 npm run demo:break
-npx trailguard scan --fail-on high        # → 3 HIGH (RBAC001, RBAC002, AUD001), exit 1
+npx trailguard scan --fail-on high            # Exits 1 with 3 HIGH findings
 
-# 2. Fix it
+# 2. Fix the demo
 npm run demo:fix
-npx trailguard scan --fail-on high        # → clean, exit 0
+npx trailguard scan --fail-on high            # Exits 0, clean
 
-# 3. Generate audit history (login as admin, update a student's marks)
-#    GET /audit/history/Student/<id>      # before/after/diff, actor, [REDACTED:xxxx] phone
+# 3. Verify legitimate chain
+npx trailguard verify                         # ✔ valid
 
-# 4. Verify
-npx trailguard verify                     # ✔ valid
+# 4. Simulate tampering (direct UPDATE in MySQL)
+#    UPDATE trailguard_audit_log SET after = '...' WHERE seq = 2;
+npx trailguard verify                         # ✖ broken: HASH_MISMATCH
 
-# 5. Tamper directly in MySQL
-#    UPDATE trailguard_audit_log SET after = ... WHERE seq = 3;
-npx trailguard verify                     # ✖ broken at seq 3: HASH_MISMATCH
-
-# 6. Smart attacker: recompute the whole chain without the key
+# 5. Simulate smart attacker without secret key
 npx tsx scripts/attacker/rehash-chain.ts
-npx trailguard verify                     # ✖ still fails (HMAC)
+npx trailguard verify                         # ✖ failed: HMAC signature invalid
 
-# 7. Truncate the tail and rewind the head
+# 6. Simulate tail truncation
 npx tsx scripts/attacker/truncate-tail.ts
-npx trailguard verify --checkpoints trailguard-checkpoints.jsonl   # ✖ TRUNCATION_DETECTED
-
-# 8. Drift: a TEACHER deleted a User although the matrix says ADMIN-only
-npx trailguard drift                      # → DRIFT001
+npx trailguard verify --checkpoints ./checkpoints.jsonl # ✖ TRUNCATION_DETECTED
 ```
 
-Full script with expected output: [`docs/DEMO.md`](./docs/DEMO.md).
+See [`docs/DEMO.md`](./docs/DEMO.md) for the detailed step-by-step transcript.
 
 ---
 
-## Novelty check
-
-> 🚧 To be completed during development. Record the exact commands and findings here.
-
-Commands run (fill in dates and results):
+## 16. Contributing
 
 ```bash
-npm search express rbac audit
-npm search express route auditor
-npm search prisma audit
-npm search prisma authorization audit
-# GitHub code search: "schema.prisma" "router.get" audit
-# libraries.io: express + authorization tags
-```
-
-**Gap statement (3 sentences):** _Write what adjacent tools exist, what each does, and the specific capability, linking static route/role analysis to a keyed, verifiable runtime log, that none provide._
-
----
-
-## Roadmap
-
-- [x] Specification and task plan
-- [ ] Static scanner MVP (`RBAC001/002/005/007`, markdown/JSON reports, baseline)
-- [ ] Audited client, HMAC chain, head locking, checkpoints, `verify`
-- [ ] Bridge: `AUD001`, `AUD002`, `trailguard ci`
-- [ ] Demo app and attacker scripts
-- [ ] Drift engine, matrix polish, CSV export, `AUD003`
-- [ ] SARIF output, restore preview
-- [ ] Optional: `$auditedTransaction`, read auditing, runtime route probe, key rotation tooling
-
----
-
-## Contributing
-
-```bash
-git clone <repo-url> && cd trailguard
+git clone https://github.com/daksheshsharma2409/trailguard.git
+cd trailguard
 npm install
-docker compose up -d                  # MySQL for integration tests
+docker compose up -d                          # Starts local MySQL 8 test instance
 npm run lint && npm run typecheck && npm test
 TEST_DATABASE_URL=mysql://root:root@localhost:3307/trailguard_test npm run test:int
 ```
 
-- Work is organized in [`tasks.md`](./tasks.md); the spec is [`context.md`](./context.md).
-- One task per commit, message format `T<id>: <title>`.
-- Design decisions go in [`docs/DECISIONS.md`](./docs/DECISIONS.md).
-- Please never weaken a test to make it pass; open an issue instead.
+- Tasks and milestones are tracked in [`tasks.md`](./tasks.md).
+- Architectural specifications are maintained in [`context.md`](./context.md).
+- Design decisions are logged in [`docs/DECISIONS.md`](./docs/DECISIONS.md).
 
 ---
 
-## License
+## 17. License
 
-MIT © _Your Name_
+[MIT](LICENSE) © Trailguard Contributors
