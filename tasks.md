@@ -285,7 +285,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T7.2 [MVP] README (full)**
   - dep: T6.4 · Accept: sections in order — problem + 5-line vulnerable example · what it does/doesn't · quickstart (static + runtime) · rules table · config reference · matrix explanation + caveat · audit log design + threat model summary (tamper-**evident**) · CI snippet · comparison table (ESLint security plugins, route dumpers, generic Prisma audit-log libs/extensions, APM — list what *they* do well, state the gap honestly) · architecture diagram · limitations (all 8 from `context.md §14`) · roadmap. Includes a **novelty check** subsection: commands you ran (`npm search express rbac audit`, `npm search prisma audit`, GitHub code search) and a 3-sentence gap statement with findings.
 
-- [ ] **T7.3 [MVP] `docs/THREAT_MODEL.md` + `docs/ARCHITECTURE.md`**
+- [x] **T7.3 [MVP] `docs/THREAT_MODEL.md` + `docs/ARCHITECTURE.md`**
   - dep: T7.2 · Accept: threat model table (attacker capability → detected? → by what mechanism → residual risk) covering: DB write only, DB admin, key theft, truncation, app-level bypass, replay; architecture doc has the diagram and module responsibilities.
 
 - [ ] **T7.4 [MVP] Package hygiene + publish dry-run**
