@@ -116,6 +116,29 @@ describe('checkOwnershipHeuristic', () => {
     const result = checkOwnershipHeuristic(undefined);
     expect(result).toBe('unknown');
   });
+
+  it('handles non-block arrow function bodies', () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    const sf = project.createSourceFile('handler.ts', `const h = (req: any, res: any) => res.json({ authorId: req.user.id });`);
+    const vd = sf.getVariableDeclarationOrThrow('h');
+    const handler = resolveHandler(vd.getInitializerOrThrow());
+    const result = checkOwnershipHeuristic(handler, {
+      ownerFields: ['authorId'],
+      signals: ['req.user.id'],
+    });
+    expect(result).toBe('probable');
+  });
+
+  it('matches statement-level regex for where or ownerField', () => {
+    const handler = createResolvedHandler(`
+      rawQuery("where: authorId = ?", req.user.id);
+    `);
+    const result = checkOwnershipHeuristic(handler, {
+      ownerFields: ['authorId'],
+      signals: ['req.user.id'],
+    });
+    expect(result).toBe('probable');
+  });
 });
 
 describe('Ownership heuristic over fixtures', () => {

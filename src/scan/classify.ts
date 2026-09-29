@@ -52,49 +52,36 @@ export interface RoleExtractionResult {
 /**
  * Extract role strings from a role middleware call expression according to configured extractor.
  */
-export function extractRoleArgs(
-  callNode: Node,
-  extractor: 'firstStringArg' | 'allStringArgs' | 'arrayArg',
-): RoleExtractionResult {
-  if (!Node.isCallExpression(callNode)) {
-    return { literals: [], hasNonLiteral: true };
+function extractFirstStringArg(args: Node[]): RoleExtractionResult {
+  const first = args[0];
+  if (!first) return { literals: [], hasNonLiteral: true };
+  const unwrapped = unwrapExpression(first);
+  if (Node.isStringLiteral(unwrapped)) {
+    return { literals: [unwrapped.getLiteralValue()], hasNonLiteral: false };
   }
-
-  const args = callNode.getArguments();
-  if (args.length === 0) {
-    return { literals: [], hasNonLiteral: true };
+  if (Node.isNoSubstitutionTemplateLiteral(unwrapped)) {
+    return { literals: [unwrapped.getLiteralText()], hasNonLiteral: false };
   }
+  return { literals: [], hasNonLiteral: true };
+}
 
-  if (extractor === 'firstStringArg') {
-    const first = args[0];
-    if (!first) return { literals: [], hasNonLiteral: true };
-    const unwrapped = unwrapExpression(first);
-    if (Node.isStringLiteral(unwrapped)) {
-      return { literals: [unwrapped.getLiteralValue()], hasNonLiteral: false };
+function extractAllStringArgs(args: Node[]): RoleExtractionResult {
+  const literals: string[] = [];
+  let hasNonLiteral = false;
+  for (const rawArg of args) {
+    const arg = unwrapExpression(rawArg);
+    if (Node.isStringLiteral(arg)) {
+      literals.push(arg.getLiteralValue());
+    } else if (Node.isNoSubstitutionTemplateLiteral(arg)) {
+      literals.push(arg.getLiteralText());
+    } else {
+      hasNonLiteral = true;
     }
-    if (Node.isNoSubstitutionTemplateLiteral(unwrapped)) {
-      return { literals: [unwrapped.getLiteralText()], hasNonLiteral: false };
-    }
-    return { literals: [], hasNonLiteral: true };
   }
+  return { literals, hasNonLiteral: hasNonLiteral || literals.length === 0 };
+}
 
-  if (extractor === 'allStringArgs') {
-    const literals: string[] = [];
-    let hasNonLiteral = false;
-    for (const rawArg of args) {
-      const arg = unwrapExpression(rawArg);
-      if (Node.isStringLiteral(arg)) {
-        literals.push(arg.getLiteralValue());
-      } else if (Node.isNoSubstitutionTemplateLiteral(arg)) {
-        literals.push(arg.getLiteralText());
-      } else {
-        hasNonLiteral = true;
-      }
-    }
-    return { literals, hasNonLiteral: hasNonLiteral || literals.length === 0 };
-  }
-
-  // extractor === 'arrayArg'
+function extractArrayArg(args: Node[]): RoleExtractionResult {
   const first = args[0];
   if (!first) return { literals: [], hasNonLiteral: true };
   const unwrapped = unwrapExpression(first);
@@ -118,6 +105,29 @@ export function extractRoleArgs(
     }
   }
   return { literals, hasNonLiteral: hasNonLiteral || literals.length === 0 };
+}
+
+export function extractRoleArgs(
+  callNode: Node,
+  extractor: 'firstStringArg' | 'allStringArgs' | 'arrayArg',
+): RoleExtractionResult {
+  if (!Node.isCallExpression(callNode)) {
+    return { literals: [], hasNonLiteral: true };
+  }
+
+  const args = callNode.getArguments();
+  if (args.length === 0) {
+    return { literals: [], hasNonLiteral: true };
+  }
+
+  switch (extractor) {
+    case 'firstStringArg':
+      return extractFirstStringArg(args);
+    case 'allStringArgs':
+      return extractAllStringArgs(args);
+    case 'arrayArg':
+      return extractArrayArg(args);
+  }
 }
 
 // ── Inline Function Analysis ────────────────────────────────────────────────
@@ -320,9 +330,7 @@ export function classifySingleMiddleware(
 ): MiddlewareRef {
   const refs = classifyMiddleware(rawNode, config);
   const first = refs[0];
-  if (first) {
-    return first;
-  }
+  if (first) return first;
   return {
     text: rawNode.getText(),
     name: rawNode.getText(),

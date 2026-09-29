@@ -273,6 +273,22 @@ describe('deriveMatrix access policies and cell union', () => {
     }
   });
 
+  it('derives resources directly from routes when models parameter is omitted and ignores options verb', () => {
+    const route = makeRoute({
+      method: 'GET',
+      path: '/widgets',
+      resource: { model: 'Widget', source: 'config' },
+    });
+    const optionsRoute = makeRoute({
+      method: 'OPTIONS',
+      path: '/widgets',
+      resource: { model: 'Widget', source: 'config' },
+    });
+    const matrix = deriveMatrix([route, optionsRoute]);
+    expect(matrix.length).toBe(4);
+    expect(matrix[0]?.resource).toBe('Widget');
+  });
+
   it('app.all populates all 4 CRUD actions', () => {
     const allRoute = makeRoute({
       method: 'all',

@@ -189,5 +189,98 @@ describe('T2.3 — Import/handler resolution', () => {
       expect(resH6.resolved).toBe(false);
       expect(resH6.name).toBe('unresolvableExternalHandler');
     });
+
+    it('supports ResolutionContext cache and clearing', () => {
+      const ctx = new ResolutionContext();
+      ctx.clear();
+      expect(ctx.getCachedHandler({} as unknown as Node)).toBeUndefined();
+      expect(ctx.getCachedRouter({} as unknown as Node)).toBeUndefined();
+    });
+
+    it('resolves CJS exports assignments', () => {
+      const project = new Project({ useInMemoryFileSystem: true });
+      project.createSourceFile(
+        'cjs.js',
+        `
+        exports.myHandler = function(req, res) { res.send('ok'); };
+        module.exports.otherHandler = (req, res) => res.send('ok');
+        `,
+      );
+      const appSf = project.createSourceFile(
+        'app.js',
+        `
+        const cjs = require('./cjs');
+        app.get('/test', cjs.myHandler);
+        app.get('/test2', cjs.otherHandler);
+        `,
+      );
+      const ctx = new ResolutionContext();
+      const { routes } = extractRoutes(appSf);
+      for (const r of routes) {
+        if (r.handlerArg) {
+          const res = resolveHandler(r.handlerArg, ctx);
+          expect(res).toBeDefined();
+        }
+      }
+    });
+
+    it('resolves higher-order function handlers and property assignments', () => {
+      const project = new Project({ useInMemoryFileSystem: true });
+      const sf = project.createSourceFile(
+        'hof.ts',
+        `
+        function makeHandler() {
+          return (req, res) => res.send('ok');
+        }
+        const controller = {
+          fnProp: function(req, res) { res.send('ok'); },
+          arrowProp: (req, res) => res.send('ok'),
+        };
+
+        app.get('/hof', makeHandler());
+        app.get('/fn-prop', controller.fnProp);
+        app.get('/arrow-prop', controller.arrowProp);
+        `,
+      );
+      const ctx = new ResolutionContext();
+      const { routes } = extractRoutes(sf);
+      for (const r of routes) {
+        if (r.handlerArg) {
+          const res = resolveHandler(r.handlerArg, ctx);
+          expect(res.resolved).toBe(true);
+        }
+      }
+    });
+
+    it('resolves direct require in app.use and destructured require', () => {
+      const project = new Project({ useInMemoryFileSystem: true });
+      project.createSourceFile(
+        'routes.ts',
+        `
+        import express from 'express';
+        const router = express.Router();
+        export default router;
+        export const namedRouter = express.Router();
+        `,
+      );
+      const appSf = project.createSourceFile(
+        'app.ts',
+        `
+        const { namedRouter } = require('./routes');
+        app.use('/direct', require('./routes'));
+        app.use('/named', namedRouter);
+        `,
+      );
+      const ctx = new ResolutionContext();
+      const { uses } = extractRoutes(appSf);
+      for (const u of uses) {
+        for (const arg of u.args) {
+          const res = resolveRouter(arg, ctx);
+          if (res.resolved) {
+            expect(res.file).toBeDefined();
+          }
+        }
+      }
+    });
   });
 });

@@ -324,4 +324,56 @@ describe('Fixture baseline verification', () => {
     expect(reloaded.entries.length).toBe(1);
     expect(reloaded.entries[0]?.fingerprint).toBe(rawFindings[0]?.fingerprint);
   });
+
+  it('handles applyBaseline with Set and BaselineEntry array', () => {
+    const findings: Finding[] = [
+      {
+        ruleId: 'RBAC001',
+        risk: 'high',
+        confidence: 'high',
+        message: 'msg',
+        file: 'app.ts',
+        line: 10,
+        fingerprint: 'fp1',
+      },
+    ];
+
+    // With Set
+    const fromSet = applyBaseline(findings, new Set(['fp1']));
+    expect(fromSet[0]?.suppressed).toBe(true);
+
+    // With BaselineEntry[]
+    const fromEntries = applyBaseline(findings, [{ fingerprint: 'fp1', ruleId: 'RBAC001' }]);
+    expect(fromEntries[0]?.suppressed).toBe(true);
+
+    // With undefined
+    const fromUndef = applyBaseline(findings, undefined);
+    expect(fromUndef[0]?.suppressed).toBeUndefined();
+  });
+
+  it('handles formatBaseline with BaselineFile object', () => {
+    const formatted = formatBaseline({
+      version: 1,
+      entries: [
+        { fingerprint: 'b', ruleId: 'RBAC002' },
+        { fingerprint: 'a', ruleId: 'RBAC001' },
+      ],
+    });
+    expect(formatted).toContain('RBAC001');
+  });
+
+  it('handles failOn none', () => {
+    const findings: Finding[] = [
+      {
+        ruleId: 'RBAC001',
+        risk: 'high',
+        confidence: 'high',
+        message: 'msg',
+        file: 'app.ts',
+        line: 10,
+        fingerprint: 'fp1',
+      },
+    ];
+    expect(isThresholdExceeded(findings, 'none')).toBe(false);
+  });
 });

@@ -512,6 +512,89 @@ describe('Fixtures verification for acceptance criteria', () => {
 
       expect(findings).toEqual([]);
     });
+
+    it('resolves guard array variable and options variable references in AUD002', () => {
+      const code = `
+        import express from 'express';
+        const app = express();
+        const authenticate = (req: any, res: any, next: any) => next();
+        const requireRole = (role: string) => (req: any, res: any, next: any) => next();
+        const auditRouter = (options?: any) => express.Router();
+
+        // 1. Guard variable
+        const myGuards = [authenticate, requireRole('ADMIN')];
+        app.use('/audit1', auditRouter({ guard: myGuards }));
+
+        // 2. Options variable
+        const myOpts = { guard: [authenticate, requireRole('ADMIN')] };
+        app.use('/audit2', auditRouter(myOpts));
+
+        // 3. Prior inline middleware on same use call
+        app.use('/audit3', authenticate, requireRole('ADMIN'), auditRouter());
+
+        // 4. Prior middleware matching prefix
+        app.use('/admin', authenticate, requireRole('ADMIN'));
+        app.use('/admin/audit4', auditRouter());
+      `;
+
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        auth: { middleware: ['authenticate'] },
+        roles: { middleware: ['requireRole'], known: ['ADMIN'] },
+        audit: { routerNames: ['auditRouter'] },
+      });
+
+      const project = new Project({ useInMemoryFileSystem: true });
+      project.createSourceFile('app.ts', code);
+
+      const findings = aud002.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        project,
+      });
+
+      expect(findings).toEqual([]);
+    });
+
+    it('covers AUD001 configuration branches (empty models, risk off, project fallback)', () => {
+      const cfgEmpty = ConfigSchema.parse({
+        entry: ['app.ts'],
+        audit: { models: [] },
+      });
+      expect(aud001.run({ routes: [], config: cfgEmpty, prismaSchema: parsePrismaSchema('') })).toEqual([]);
+
+      const cfgOff = ConfigSchema.parse({
+        entry: ['app.ts'],
+        audit: { models: ['Student'] },
+        rules: { AUD001: 'off' },
+      });
+      expect(aud001.run({ routes: [], config: cfgOff, prismaSchema: parsePrismaSchema('') })).toEqual([]);
+
+      // Project fallback when prismaWrites is not supplied
+      const cfgActive = ConfigSchema.parse({
+        entry: ['app.ts'],
+        audit: { models: ['Student'] },
+      });
+      const project = new Project({ useInMemoryFileSystem: true });
+      project.createSourceFile('app.ts', 'prisma.student.delete({ where: { id: 1 } });');
+      const findings = aud001.run({
+        routes: [],
+        config: cfgActive,
+        prismaSchema: parsePrismaSchema(''),
+        project,
+      });
+      expect(findings.length).toBe(1);
+
+      // Neither prismaWrites nor project supplied
+      expect(
+        aud001.run({
+          routes: [],
+          config: cfgActive,
+          prismaSchema: parsePrismaSchema(''),
+        }),
+      ).toEqual([]);
+    });
   });
 });
 

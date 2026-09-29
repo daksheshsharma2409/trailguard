@@ -137,4 +137,20 @@ describe('mapResource', () => {
       source: 'heuristic',
     });
   });
+
+  it('supports Set for knownModels parameter', () => {
+    const setModels = new Set(['Student', 'Post']);
+    expect(mapResource('/api/students', {}, setModels)).toEqual({
+      model: 'Student',
+      source: 'heuristic',
+    });
+  });
+
+  it('supports Map for knownModels parameter', () => {
+    const mapModels = new Map([['Student', { fields: new Map(), ownerFields: [] }]]);
+    expect(mapResource('/api/students', {}, mapModels)).toEqual({
+      model: 'Student',
+      source: 'heuristic',
+    });
+  });
 });

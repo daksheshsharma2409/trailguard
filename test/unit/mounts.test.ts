@@ -135,7 +135,8 @@ describe('Cycle detection in router mounts', () => {
 
       routerA.use('/b', routerB);
       routerB.use('/a', routerA);
-      routerB.get('/endpoint', (req, res) => res.send('ok'));
+      routerA.get('/endpointA', (req, res) => res.send('ok'));
+      routerB.get('/endpointB', (req, res) => res.send('ok'));
 
       app.use('/api', routerA);
       `,
@@ -152,5 +153,36 @@ describe('Cycle detection in router mounts', () => {
     expect(routes.length).toBeGreaterThan(0);
 
     warnSpy.mockRestore();
+  });
+
+  it('handles empty input routes and uses', () => {
+    const res = composeMounts({ routes: [], uses: [] });
+    expect(res.routes).toEqual([]);
+    expect(res.warnings).toEqual([]);
+  });
+
+  it('handles orphan routers not mounted to app and routes without handlers', () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      'app.ts',
+      `
+      import express, { Router } from 'express';
+      const app = express();
+      const orphanRouter = Router();
+
+      orphanRouter.use((req, res, next) => next());
+      orphanRouter.get('/orphan-endpoint', (req, res) => res.send('ok'));
+      app.get('/no-handler');
+      `,
+    );
+
+    const { routes } = composeMounts(project);
+    const orphanRoute = routes.find((r) => r.path === '/orphan-endpoint');
+    expect(orphanRoute).toBeDefined();
+    expect(orphanRoute?.orphan).toBe(true);
+
+    const noHandlerRoute = routes.find((r) => r.path === '/no-handler');
+    expect(noHandlerRoute).toBeDefined();
+    expect(noHandlerRoute?.resolvedHandler).toBeUndefined();
   });
 });

@@ -89,4 +89,11 @@ describe('runtime/diff', () => {
     const diff = createDiff(before, after, 'UPDATE');
     expect(diff).toEqual({});
   });
+
+  it('skips keys where both before and after values are undefined', () => {
+    const before = { id: 'std_1', extra: undefined };
+    const after = { id: 'std_1', extra: undefined };
+    const diff = createDiff(before, after, 'UPDATE');
+    expect(diff).toEqual({});
+  });
 });

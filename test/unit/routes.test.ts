@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { Project } from 'ts-morph';
-import { extractRoutes, extractRoutesFromProject } from '../../src/scan/routes.js';
+import {
+  extractRoutes,
+  extractRoutesFromProject,
+  isPathArg,
+  extractPathFromNode,
+  flattenArgs,
+} from '../../src/scan/routes.js';
 import { loadFixture } from '../helpers/fixture.js';
 
 describe('T2.2 — Route extraction', () => {
@@ -237,6 +243,76 @@ describe('T2.2 — Route extraction', () => {
       expect(uses.length).toBe(2);
       expect(uses[0]?.order).toBe(1);
       expect(uses[1]?.order).toBe(2);
+    });
+
+    it('handles identifier paths, array paths, and function parameters', () => {
+      const project = new Project({ useInMemoryFileSystem: true });
+      const sf = project.createSourceFile(
+        'test-helpers.ts',
+        `
+        import express from 'express';
+        const app = express();
+        const myPath = '/custom';
+        app.get(myPath, (req, res) => res.send('ok'));
+        app.get(['/a', '/b'], (req, res) => res.send('ok'));
+
+        function registerRoutes(customApp: express.Express) {
+          customApp.post('/dyn', (req, res) => res.send('ok'));
+        }
+        registerRoutes(app);
+
+        const untypedApp: any = {};
+        untypedApp.get('/u-app', (req: any, res: any) => res.send('ok'));
+
+        const untypedRouter: any = {};
+        untypedRouter.post('/u-router', (req: any, res: any) => res.send('ok'));
+
+        app.use();
+        app.get();
+        `,
+      );
+      project.createSourceFile('declarations.d.ts', 'declare module "foo";');
+      const { routes } = extractRoutes(sf);
+      expect(routes.length).toBeGreaterThanOrEqual(4);
+
+      const projectRoutes = extractRoutesFromProject(project);
+      expect(projectRoutes.routes.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('unit tests path helper functions and argument flattening', () => {
+      const project = new Project({ useInMemoryFileSystem: true });
+      const sf = project.createSourceFile(
+        'paths.ts',
+        `
+        const str = '/test';
+        const noSub = \`/static\`;
+        const tmpl = \`/user/\${id}\`;
+        const regex = /abc/;
+        const arr = ['/arr'];
+        const emptyArr = [];
+        const num = 123;
+        `,
+      );
+      const varDecls = sf.getVariableDeclarations();
+      const map = new Map(varDecls.map((v) => [v.getName(), v.getInitializer()!]));
+
+      expect(isPathArg(map.get('str')!)).toBe(true);
+      expect(isPathArg(map.get('noSub')!)).toBe(true);
+      expect(isPathArg(map.get('tmpl')!)).toBe(true);
+      expect(isPathArg(map.get('regex')!)).toBe(true);
+      expect(isPathArg(map.get('arr')!)).toBe(true);
+      expect(isPathArg(map.get('emptyArr')!)).toBe(false);
+      expect(isPathArg(map.get('num')!)).toBe(false);
+
+      expect(extractPathFromNode(map.get('str')!).rawPath).toBe('/test');
+      expect(extractPathFromNode(map.get('noSub')!).rawPath).toBe('/static');
+      expect(extractPathFromNode(map.get('tmpl')!).rawPath).toContain(':dynamic');
+      expect(extractPathFromNode(map.get('regex')!).rawPath).toBe('<regex>');
+      expect(extractPathFromNode(map.get('arr')!).rawPath).toBe('<regex>');
+      expect(extractPathFromNode(map.get('num')!).rawPath).toBe(':dynamic');
+
+      const flattened = flattenArgs([map.get('str')!, map.get('arr')!]);
+      expect(flattened.length).toBe(2);
     });
   });
 });

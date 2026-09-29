@@ -27,12 +27,13 @@ interface CliResult {
   stdout: string;
   stderr: string;
 }
-
 function runCli(args: string[]): CliResult {
+  const env = { ...process.env };
+  delete env.NODE_V8_COVERAGE;
   const result = spawnSync('node', [BIN_PATH, ...args], {
     cwd: ROOT_DIR,
     encoding: 'utf-8',
-    env: { ...process.env },
+    env,
   });
 
   return {

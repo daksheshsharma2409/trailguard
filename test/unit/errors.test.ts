@@ -145,6 +145,17 @@ describe('ScanParseError', () => {
     expect(err.lineNumber).toBe(42);
   });
 
+  it('captures cause in ScanParseError and ScanConfigError', () => {
+    const cause = new Error('inner');
+    const parseErr = new ScanParseError('x', { cause });
+    expect(parseErr.cause).toBe(cause);
+    const configErr = new ScanConfigError('x', { lineNumber: 10, cause });
+    expect(configErr.lineNumber).toBe(10);
+    expect(configErr.cause).toBe(cause);
+    const chainErr = new AuditChainBrokenError('x', { cause });
+    expect(chainErr.cause).toBe(cause);
+  });
+
   it('filePath and lineNumber are undefined when not provided', () => {
     const err = new ScanParseError('x');
     expect(err.filePath).toBeUndefined();

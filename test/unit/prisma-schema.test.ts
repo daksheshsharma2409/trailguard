@@ -222,4 +222,74 @@ describe('loadPrismaSchema', () => {
     expect(result.has('Student')).toBe(true);
     expect(result.get('Student')?.ownerFields).toContain('authorId');
   });
+
+  it('re-throws ScanConfigError when reading malformed schema from disk', () => {
+    const tmpDir = path.resolve('test/fixtures/clean/prisma');
+    const schemaPath = path.join(tmpDir, 'malformed.prisma');
+    fs.writeFileSync(schemaPath, 'model Unclosed { id String @id');
+    try {
+      expect(() => loadPrismaSchema(schemaPath)).toThrow(ScanConfigError);
+    } finally {
+      if (fs.existsSync(schemaPath)) fs.unlinkSync(schemaPath);
+    }
+  });
+
+  it('throws ScanConfigError on unexpected token outside model block', () => {
+    const bad = 'someToken { foo String }';
+    expect(() => parsePrismaSchema(bad)).toThrow(ScanConfigError);
+  });
+
+  it('parses relations without explicit names', () => {
+    const schema = `
+      model Comment {
+        id Int @id
+        postId Int
+        post Post @relation(fields: [postId], references: [id])
+      }
+    `;
+    const result = parsePrismaSchema(schema);
+    const comment = result.get('Comment');
+    expect(comment?.relations.get('post')?.name).toBeUndefined();
+    expect(comment?.relations.get('post')?.fields).toEqual(['postId']);
+  });
+
+  it('parses enums, quoted field attributes, and composite relations', () => {
+    expect(stripComments("val String @default('test // single') // comment")).toBe(
+      "val String @default('test // single')",
+    );
+
+    const schema = `
+      datasource db {
+        provider = "mysql"
+        url = env("DATABASE_URL")
+      }
+
+      generator client {
+        provider = "prisma-client-js"
+      }
+
+      enum Role {
+        ADMIN
+        USER
+      }
+
+      model Item {
+        id Int @id @default(autoincrement())
+        name String @default("item name with spaces")
+        ownerId String
+        tenantId String
+        user User @relation("ItemUser", fields: [ownerId, tenantId], references: [id, tenantId])
+
+        @@unique([name, ownerId])
+        @@index([tenantId])
+      }
+    `;
+
+    const result = parsePrismaSchema(schema);
+    expect(result.has('Item')).toBe(true);
+    const item = result.get('Item');
+    expect(item?.relations.get('user')?.fields).toEqual(['ownerId', 'tenantId']);
+    expect(item?.relations.get('user')?.references).toEqual(['id', 'tenantId']);
+    expect(item?.relations.get('user')?.name).toBe('ItemUser');
+  });
 });

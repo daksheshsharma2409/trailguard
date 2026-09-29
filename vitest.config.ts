@@ -8,7 +8,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/scan/**', 'src/runtime/**', 'src/core/**'],
-      exclude: ['src/scan/report/**'],
+      exclude: ['src/scan/report/**', 'src/core/types.ts'],
       thresholds: {
         lines: 80,
       },

@@ -20,6 +20,7 @@ import {
   DEFAULT_MAX_BULK_ROWS,
   CHECKPOINT_SIG_PREFIX,
 } from '../../src/core/constants.js';
+import { SCAN_API_VERSION } from '../../src/scan/index.js';
 
 describe('Constants', () => {
   it('GENESIS_HASH is 64 zeros', () => {
@@ -68,10 +69,18 @@ describe('Constants', () => {
 describe('Public re-exports (compile-time check)', () => {
   it('runtime index re-exports constants', async () => {
     // Dynamic import verifies the actual dist module re-exports these names
-    const runtime = await import('../../src/index.js') as Record<string, unknown>;
+    const runtime = (await import('../../src/index.js')) as Record<string, unknown>;
     expect(runtime['GENESIS_HASH']).toBe('0'.repeat(64));
     expect(runtime['PAYLOAD_VERSION']).toBe(1);
     expect(runtime['AUDIT_LOG_TABLE']).toBe('trailguard_audit_log');
     expect(runtime['AUDIT_HEAD_TABLE']).toBe('trailguard_audit_head');
+  });
+
+  it('scan index re-exports static analysis API', async () => {
+    expect(SCAN_API_VERSION).toBe(1);
+    const scanApi = (await import('../../src/scan/index.js')) as Record<string, unknown>;
+    expect(typeof scanApi['scan']).toBe('function');
+    expect(typeof scanApi['findPrismaWrites']).toBe('function');
+    expect(typeof scanApi['formatMarkdownReport']).toBe('function');
   });
 });

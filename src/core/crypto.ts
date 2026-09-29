@@ -69,7 +69,6 @@ export function timingSafeEqualHex(a: string, b: string): boolean {
   try {
     const bufA = Buffer.from(a, 'hex');
     const bufB = Buffer.from(b, 'hex');
-    if (bufA.length !== bufB.length) return false;
     return timingSafeEqual(bufA, bufB);
   } catch {
     return false;

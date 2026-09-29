@@ -7,6 +7,8 @@
  * @module trailguard/scan
  */
 
+export const SCAN_API_VERSION = 1;
+
 // Error classes (shared)
 export {
   TrailguardError,

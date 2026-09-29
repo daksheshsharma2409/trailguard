@@ -12,7 +12,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { loadConfig } from '../config/load.js';
-import type { Config } from '../config/schema.js';
+import { ConfigSchema, type Config, type UserConfig } from '../config/schema.js';
 import { createProject } from './project.js';
 import { composeMounts } from './mounts.js';
 import { loadPrismaSchema, parsePrismaSchema } from './prisma-schema.js';
@@ -32,8 +32,8 @@ import { formatJsonReport } from './report/json.js';
 import type { Risk, ScanResult } from '../core/types.js';
 
 export interface ScanOptions {
-  /** Path to config file, or an already loaded Config object. */
-  config?: string | Config | undefined;
+  /** Path to config file, or an already loaded Config/UserConfig object. */
+  config?: string | Config | UserConfig | undefined;
   /** Entry path override (e.g. from CLI positional arg). */
   src?: string | undefined;
   /** Output report format (default: 'md'). */
@@ -101,7 +101,7 @@ export async function scan(options: ScanOptions = {}): Promise<ScanOutput> {
   let configFilePath: string | undefined;
 
   if (typeof options.config === 'object') {
-    config = options.config;
+    config = ConfigSchema.parse(options.config);
   } else if (typeof options.config === 'string') {
     configFilePath = options.config;
     config = await loadConfig(configFilePath);

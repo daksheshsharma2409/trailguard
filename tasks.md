@@ -279,7 +279,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
 ## Phase 7 — Hardening, docs, publish
 
-- [ ] **T7.1 [MVP] Coverage + perf gates**
+- [x] **T7.1 [MVP] Coverage + perf gates**
   - dep: Phases 2–4 · Accept: coverage ≥ 80% lines on `scan/**` (excl. reporters), `runtime/**`, `core/**`; `scan()` on demo app < 3s in a test; coverage threshold enforced in vitest config.
 
 - [ ] **T7.2 [MVP] README (full)**

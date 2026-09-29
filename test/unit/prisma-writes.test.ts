@@ -282,4 +282,74 @@ describe('Fixtures integration for T4.1', () => {
     expect(methods).toContain('$executeRaw');
     expect(methods).toContain('$executeRawUnsafe');
   });
+
+  it('handles target variations (SourceFile and SourceFile[]) and various enclosing function kinds', () => {
+    const code = `
+      class Controller {
+        classMethod() {
+          prisma.student.create({ data: {} });
+        }
+      }
+      const namedExpr = function myNamedFn() {
+        prisma.student.delete({ where: { id: 1 } });
+      };
+      const obj = {
+        propFn: function() {
+          prisma.student.update({ where: { id: 1 }, data: {} });
+        },
+        propArrow: () => {
+          prisma.student.upsert({ where: { id: 1 }, create: {}, update: {} });
+        },
+      };
+      // Dotted audited client receiver
+      req.app.locals.auditClient.student.update({ where: { id: 1 }, data: {} });
+    `;
+
+    const project = new Project({ useInMemoryFileSystem: true });
+    const sf = project.createSourceFile('handlers.ts', code);
+
+    const dummyRoute = {
+      method: 'POST' as const,
+      path: '/test',
+      rawPath: '/test',
+      confidence: 'high' as const,
+      chain: [],
+      file: sf.getFilePath(),
+      line: 1,
+      handler: {
+        name: 'Controller.classMethod',
+        file: sf.getFilePath(),
+        line: 3,
+      },
+      ownership: 'none' as const,
+    };
+
+    const localConfig = ConfigSchema.parse({
+      entry: ['app.ts'],
+      audit: {
+        models: ['Student'],
+        clientNames: ['auditClient'],
+      },
+    });
+
+    // Test with single SourceFile and RouteNode matching
+    const resSingle = findPrismaWrites(sf, localConfig, [dummyRoute]);
+    expect(resSingle.modelWrites.length).toBe(4);
+    const classWrite = resSingle.modelWrites.find((w) => w.op === 'create');
+    expect(classWrite?.enclosingFunction).toBe('classMethod');
+    expect(classWrite?.routeNode?.path).toBe('/test');
+
+    const fnWrite = resSingle.modelWrites.find((w) => w.op === 'delete');
+    expect(fnWrite?.enclosingFunction).toBe('myNamedFn');
+
+    const propFnWrite = resSingle.modelWrites.find((w) => w.op === 'update');
+    expect(propFnWrite?.enclosingFunction).toBe('propFn');
+
+    const propArrowWrite = resSingle.modelWrites.find((w) => w.op === 'upsert');
+    expect(propArrowWrite?.enclosingFunction).toBe('propArrow');
+
+    // Test with SourceFile[]
+    const resArray = findPrismaWrites([sf], localConfig);
+    expect(resArray.modelWrites.length).toBe(4);
+  });
 });

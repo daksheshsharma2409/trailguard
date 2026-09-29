@@ -33,12 +33,16 @@ describe('T2.1 — ts-morph project + fixture harness', () => {
       expect(nmRegex.test('node_modules/express/index.js')).toBe(true);
       expect(nmRegex.test('/var/project/node_modules/express/index.js')).toBe(true);
       expect(nmRegex.test('/var/project/src/index.js')).toBe(false);
+      const qRegex = globToRegex('file?.ts');
+      expect(qRegex.test('file1.ts')).toBe(true);
+      expect(qRegex.test('file12.ts')).toBe(false);
     });
 
     it('isIgnored checks file paths and file names against ignore list', () => {
-      const ignore = ['**/*.spec.ts', '**/dist/**'];
+      const ignore = ['**/*.spec.ts', '**/dist/**', 'ignored-file.ts'];
       expect(isIgnored('/project/src/math.spec.ts', ignore)).toBe(true);
       expect(isIgnored('/project/dist/bundle.js', ignore)).toBe(true);
+      expect(isIgnored('/project/src/ignored-file.ts', ignore)).toBe(true);
       expect(isIgnored('/project/src/math.ts', ignore)).toBe(false);
     });
   });
@@ -100,6 +104,23 @@ describe('T2.1 — ts-morph project + fixture harness', () => {
       expect(paths).toContain(entryFile);
       expect(paths).toContain(helperFile);
       expect(paths).not.toContain(testFile);
+    });
+
+    it('loads project with custom tsconfig option', () => {
+      const entryFile = path.join(tmpDir, 'app.ts');
+      const tsconfigFile = path.join(tmpDir, 'tsconfig.json');
+      fs.writeFileSync(entryFile, 'export const val = 42;');
+      fs.writeFileSync(
+        tsconfigFile,
+        JSON.stringify({ compilerOptions: { target: 'ES2022' } }),
+      );
+
+      const project = createProject({
+        entry: [entryFile],
+        tsconfig: tsconfigFile,
+      });
+
+      expect(project.getSourceFiles().map((sf) => sf.getFilePath())).toContain(entryFile);
     });
   });
 

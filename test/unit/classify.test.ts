@@ -11,6 +11,7 @@ import {
   classifyMiddleware,
   classifySingleMiddleware,
   extractRoleArgs,
+  mentionsUserRole,
   isNeutralMiddleware,
   KNOWN_NEUTRAL_MIDDLEWARE,
   type ClassificationConfig,
@@ -262,9 +263,9 @@ describe('Role extractors unit tests', () => {
     expect(res1.literals).toEqual(['admin']);
     expect(res1.hasNonLiteral).toBe(false);
 
-    const call2 = createSnippetNode('requireRole(MY_ROLE)');
-    const res2 = extractRoleArgs(call2, 'firstStringArg');
-    expect(res2.hasNonLiteral).toBe(true);
+    const call3 = createSnippetNode('requireRole(123)');
+    const res3 = extractRoleArgs(call3, 'firstStringArg');
+    expect(res3.hasNonLiteral).toBe(true);
   });
 
   it('extracts roles with allStringArgs', () => {
@@ -276,6 +277,11 @@ describe('Role extractors unit tests', () => {
     const call2 = createSnippetNode("requireRole('admin', DYNAMIC_ROLE)");
     const res2 = extractRoleArgs(call2, 'allStringArgs');
     expect(res2.hasNonLiteral).toBe(true);
+
+    const call3 = createSnippetNode("requireRole('admin', `editor`)");
+    const res3 = extractRoleArgs(call3, 'allStringArgs');
+    expect(res3.literals).toEqual(['admin', 'editor']);
+    expect(res3.hasNonLiteral).toBe(false);
   });
 
   it('extracts roles with arrayArg', () => {
@@ -287,6 +293,11 @@ describe('Role extractors unit tests', () => {
     const call2 = createSnippetNode("requireRole(['admin', SOME_VAR])");
     const res2 = extractRoleArgs(call2, 'arrayArg');
     expect(res2.hasNonLiteral).toBe(true);
+
+    const call3 = createSnippetNode("requireRole([`admin`, 123])");
+    const res3 = extractRoleArgs(call3, 'arrayArg');
+    expect(res3.hasNonLiteral).toBe(true);
+    expect(res3.literals).toEqual(['admin']);
   });
 });
 
@@ -325,5 +336,46 @@ describe('Classification with unknown-mw fixture', () => {
     const customMw = classified.find((c) => c.text === 'customTelemetry');
     expect(customMw).toBeDefined();
     expect(customMw?.class.kind).toBe('unknown');
+  });
+
+  it('covers template literals, non-calls, empty calls, and mentionsUserRole', () => {
+    const nonCall = createSnippetNode('requireRole');
+    expect(extractRoleArgs(nonCall, 'firstStringArg').hasNonLiteral).toBe(true);
+
+    const emptyCall = createSnippetNode('requireRole()');
+    expect(extractRoleArgs(emptyCall, 'firstStringArg').hasNonLiteral).toBe(true);
+
+    const tmplCall = createSnippetNode('requireRole(`admin`)');
+    expect(extractRoleArgs(tmplCall, 'firstStringArg').literals).toEqual(['admin']);
+
+    const allTmpl = createSnippetNode('requireRole(`admin`, `user`)');
+    expect(extractRoleArgs(allTmpl, 'allStringArgs').literals).toEqual(['admin', 'user']);
+
+    const arrNonArr = createSnippetNode('requireRole("admin")');
+    expect(extractRoleArgs(arrNonArr, 'arrayArg').hasNonLiteral).toBe(true);
+
+    const arrEmpty = createSnippetNode('requireRole([])');
+    expect(extractRoleArgs(arrEmpty, 'arrayArg').hasNonLiteral).toBe(true);
+
+    const arrTmpl = createSnippetNode('requireRole([`admin`])');
+    expect(extractRoleArgs(arrTmpl, 'arrayArg').literals).toEqual(['admin']);
+
+    const fn1 = createSnippetNode('(req, res, next) => { if (req.user.role === "admin") next(); }');
+    expect(mentionsUserRole(fn1)).toBe(true);
+
+    const fn2 = createSnippetNode('function(req, res, next) { next(); }');
+    expect(mentionsUserRole(fn2)).toBe(false);
+
+    const notFn = createSnippetNode('123');
+    expect(mentionsUserRole(notFn)).toBe(false);
+
+    const nonStrCall = createSnippetNode('requireRole(123)');
+    expect(extractRoleArgs(nonStrCall, 'firstStringArg').hasNonLiteral).toBe(true);
+
+    const mixedAll = createSnippetNode('requireRole("admin", 123)');
+    expect(extractRoleArgs(mixedAll, 'allStringArgs').hasNonLiteral).toBe(true);
+
+    const mixedArr = createSnippetNode('requireRole(["admin", 123])');
+    expect(extractRoleArgs(mixedArr, 'arrayArg').hasNonLiteral).toBe(true);
   });
 });
