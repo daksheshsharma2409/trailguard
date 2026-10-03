@@ -288,7 +288,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T7.3 [MVP] `docs/THREAT_MODEL.md` + `docs/ARCHITECTURE.md`**
   - dep: T7.2 · Accept: threat model table (attacker capability → detected? → by what mechanism → residual risk) covering: DB write only, DB admin, key theft, truncation, app-level bypass, replay; architecture doc has the diagram and module responsibilities.
 
-- [ ] **T7.4 [MVP] Package hygiene + publish dry-run**
+- [x] **T7.4 [MVP] Package hygiene + publish dry-run**
   - dep: T7.1 · Accept: `files` whitelist (`dist`, `bin`, `prisma`, `README.md`, `LICENSE`); `npm pack --dry-run` lists only intended files; installing the tarball into a scratch project then `npx trailguard --version` and `import 'trailguard'` / `'trailguard/scan'` both work; runtime entry does not import `ts-morph` (assert via a test that inspects `dist/index.js` import graph); `.d.ts` audit passes (`tsc --noEmit` on a consumer snippet).
 
 - [ ] **T7.5 [T2] Self-audit in CI**
