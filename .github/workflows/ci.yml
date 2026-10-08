@@ -82,3 +82,44 @@ jobs:
         run: npm run test:int
         env:
           TEST_DATABASE_URL: mysql://root:root@localhost:3307/trailguard_test
+
+  # ── Self-audit on fixed demo app (T7.5) ──────────────────────────────────
+  demo-audit-clean:
+    name: Self-audit demo (fixed)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Run trailguard ci --no-db on fixed demo app
+        run: node bin/trailguard.js ci --config examples/demo-app/trailguard.config.ts --no-db --fail-on high
+
+  # ── Self-audit expected failure on vulnerable demo app (T7.5) ─────────────
+  demo-audit-vulnerable:
+    name: Self-audit demo (vulnerable, expected failure)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Apply vulnerable patch
+        run: npm run demo:break
+      - name: Assert trailguard ci fails with exit code 1 when findings >= high
+        run: |
+          set +e
+          node bin/trailguard.js ci --config examples/demo-app/trailguard.config.ts --no-db --fail-on high
+          EXIT_CODE=$?
+          set -e
+          if [ "$EXIT_CODE" -ne 1 ]; then
+            echo "Expected exit code 1 from vulnerable demo app, but got $EXIT_CODE"
+            exit 1
+          fi
+          echo "Verified: vulnerable demo correctly failed with exit code 1"

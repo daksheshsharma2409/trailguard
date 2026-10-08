@@ -291,7 +291,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T7.4 [MVP] Package hygiene + publish dry-run**
   - dep: T7.1 · Accept: `files` whitelist (`dist`, `bin`, `prisma`, `README.md`, `LICENSE`); `npm pack --dry-run` lists only intended files; installing the tarball into a scratch project then `npx trailguard --version` and `import 'trailguard'` / `'trailguard/scan'` both work; runtime entry does not import `ts-morph` (assert via a test that inspects `dist/index.js` import graph); `.d.ts` audit passes (`tsc --noEmit` on a consumer snippet).
 
-- [ ] **T7.5 [T2] Self-audit in CI**
+- [x] **T7.5 [T2] Self-audit in CI**
   - dep: T6.1, T5.2 · Accept: CI job runs `trailguard ci --no-db` on the fixed demo app and fails the build if findings ≥ high; second CI job proves the **vulnerable** branch fails (expected-failure assertion).
 
 - [ ] **T7.6 [T2] Final report assets**
