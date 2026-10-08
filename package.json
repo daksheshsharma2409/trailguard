@@ -33,7 +33,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "trailguard": "./bin/trailguard.js"
+    "trailguard": "bin/trailguard.js"
   },
   "files": [
     "dist",
