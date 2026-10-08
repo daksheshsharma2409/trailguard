@@ -294,7 +294,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T7.5 [T2] Self-audit in CI**
   - dep: T6.1, T5.2 · Accept: CI job runs `trailguard ci --no-db` on the fixed demo app and fails the build if findings ≥ high; second CI job proves the **vulnerable** branch fails (expected-failure assertion).
 
-- [ ] **T7.6 [T2] Final report assets**
+- [x] **T7.6 [T2] Final report assets**
   - dep: T7.3 · Accept: `docs/REPORT.md` skeleton with architecture diagram, before/after demo screenshots/outputs placeholders, syllabus-mapping table (Express routing/middleware, MySQL/Prisma, migrations, seeding, relations, **transactions**, JWT/RBAC, error handling, TypeScript/OOP, `fs` export, npm publish/CI/deployment), limitations.
 
 ---
