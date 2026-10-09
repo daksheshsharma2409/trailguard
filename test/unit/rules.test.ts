@@ -19,8 +19,12 @@ import {
   DEFAULT_RULES,
   rbac001,
   rbac002,
+  rbac003,
+  rbac004,
   rbac005,
+  rbac006,
   rbac007,
+  rbac008,
   aud001,
   aud002,
 } from '../../src/scan/rules/index.js';
@@ -243,11 +247,386 @@ describe('Fixtures verification for acceptance criteria', () => {
   it('registry registers all default rules with valid IDs and descriptions', () => {
     expect(DEFAULT_RULES).toContain(rbac001);
     expect(DEFAULT_RULES).toContain(rbac002);
+    expect(DEFAULT_RULES).toContain(rbac003);
+    expect(DEFAULT_RULES).toContain(rbac004);
     expect(DEFAULT_RULES).toContain(rbac005);
+    expect(DEFAULT_RULES).toContain(rbac006);
     expect(DEFAULT_RULES).toContain(rbac007);
+    expect(DEFAULT_RULES).toContain(rbac008);
     expect(DEFAULT_RULES).toContain(aud001);
     expect(DEFAULT_RULES).toContain(aud002);
-    expect(DEFAULT_RULES.length).toBe(6);
+    expect(DEFAULT_RULES.length).toBe(10);
+  });
+
+  describe('Rule RBAC003 (unauthenticated read of private resource)', () => {
+    const prismaWithPost = parsePrismaSchema(`
+      model Post {
+        id Int @id
+        title String
+        authorId Int
+      }
+      model PublicInfo {
+        id Int @id
+        content String
+      }
+    `, ['authorId']);
+
+    it('emits RBAC003 with confidence high when resource is in config.privateResources', () => {
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        privateResources: ['PublicInfo'],
+      });
+      const route = {
+        method: 'GET' as const,
+        path: '/api/info',
+        rawPath: '/info',
+        confidence: 'high' as const,
+        chain: [],
+        file: 'app.ts',
+        line: 10,
+        resource: { model: 'PublicInfo', source: 'config' as const },
+        ownership: 'none' as const,
+      };
+
+      const findings = rbac003.run({
+        routes: [route],
+        config: cfg,
+        prismaSchema: prismaWithPost,
+      });
+
+      expect(findings.length).toBe(1);
+      expect(findings[0]?.ruleId).toBe('RBAC003');
+      expect(findings[0]?.confidence).toBe('high');
+      expect(findings[0]?.risk).toBe('medium');
+    });
+
+    it('emits RBAC003 with confidence medium when resource has owner fields in schema', () => {
+      const cfg = ConfigSchema.parse({ entry: ['app.ts'] });
+      const route = {
+        method: 'HEAD' as const,
+        path: '/api/posts/:id',
+        rawPath: '/:id',
+        confidence: 'high' as const,
+        chain: [],
+        file: 'app.ts',
+        line: 12,
+        resource: { model: 'Post', source: 'heuristic' as const },
+        ownership: 'none' as const,
+      };
+
+      const findings = rbac003.run({
+        routes: [route],
+        config: cfg,
+        prismaSchema: prismaWithPost,
+      });
+
+      expect(findings.length).toBe(1);
+      expect(findings[0]?.confidence).toBe('medium');
+      expect(findings[0]?.message).toContain("accesses private resource 'Post' without authentication");
+    });
+
+    it('does not emit RBAC003 when route has auth middleware', () => {
+      const cfg = ConfigSchema.parse({ entry: ['app.ts'] });
+      const route = {
+        method: 'GET' as const,
+        path: '/api/posts/:id',
+        rawPath: '/:id',
+        confidence: 'high' as const,
+        chain: [
+          {
+            name: 'authenticate',
+            text: 'authenticate',
+            args: [],
+            class: { kind: 'auth' as const },
+            file: 'app.ts',
+            line: 5,
+          },
+        ],
+        file: 'app.ts',
+        line: 15,
+        resource: { model: 'Post', source: 'heuristic' as const },
+        ownership: 'none' as const,
+      };
+
+      const findings = rbac003.run({
+        routes: [route],
+        config: cfg,
+        prismaSchema: prismaWithPost,
+      });
+
+      expect(findings).toEqual([]);
+    });
+
+    it('does not emit RBAC003 on non-GET/HEAD routes or unmapped public resources', () => {
+      const cfg = ConfigSchema.parse({ entry: ['app.ts'] });
+      const postRoute = {
+        method: 'POST' as const,
+        path: '/api/posts',
+        rawPath: '/',
+        confidence: 'high' as const,
+        chain: [],
+        file: 'app.ts',
+        line: 20,
+        resource: { model: 'Post', source: 'heuristic' as const },
+        ownership: 'none' as const,
+      };
+      const publicRoute = {
+        method: 'GET' as const,
+        path: '/api/info',
+        rawPath: '/info',
+        confidence: 'high' as const,
+        chain: [],
+        file: 'app.ts',
+        line: 25,
+        resource: { model: 'PublicInfo', source: 'heuristic' as const },
+        ownership: 'none' as const,
+      };
+
+      expect(rbac003.run({ routes: [postRoute, publicRoute], config: cfg, prismaSchema: prismaWithPost })).toEqual([]);
+    });
+  });
+
+  describe('Rule RBAC004 (unknown role reference)', () => {
+    it('emits RBAC004 when role middleware references a role outside roles.known', () => {
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        roles: {
+          known: ['ADMIN', 'USER'],
+        },
+      });
+
+      const route = {
+        method: 'DELETE' as const,
+        path: '/api/admin',
+        rawPath: '/admin',
+        confidence: 'high' as const,
+        chain: [
+          {
+            name: 'requireRole',
+            text: "requireRole('SUPERADMIN')",
+            args: ['SUPERADMIN'],
+            class: { kind: 'role' as const, value: 'SUPERADMIN' },
+            file: 'app.ts',
+            line: 10,
+          },
+        ],
+        file: 'app.ts',
+        line: 12,
+        ownership: 'none' as const,
+      };
+
+      const findings = rbac004.run({
+        routes: [route],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+      });
+
+      expect(findings.length).toBe(1);
+      expect(findings[0]?.ruleId).toBe('RBAC004');
+      expect(findings[0]?.risk).toBe('medium');
+      expect(findings[0]?.confidence).toBe('high');
+      expect(findings[0]?.message).toContain("references role 'SUPERADMIN' which is not in configured known roles (ADMIN, USER)");
+    });
+
+    it('does not emit RBAC004 if role is known or roles.known is empty', () => {
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        roles: { known: ['ADMIN'] },
+      });
+      const validRoute = {
+        method: 'GET' as const,
+        path: '/api/admin',
+        rawPath: '/admin',
+        confidence: 'high' as const,
+        chain: [
+          {
+            name: 'requireRole',
+            text: "requireRole('ADMIN')",
+            args: ['ADMIN'],
+            class: { kind: 'role' as const, value: 'ADMIN' },
+            file: 'app.ts',
+            line: 10,
+          },
+        ],
+        file: 'app.ts',
+        line: 12,
+        ownership: 'none' as const,
+      };
+
+      expect(rbac004.run({ routes: [validRoute], config: cfg, prismaSchema: parsePrismaSchema('') })).toEqual([]);
+
+      const emptyKnownCfg = ConfigSchema.parse({ entry: ['app.ts'] });
+      expect(rbac004.run({ routes: [validRoute], config: emptyKnownCfg, prismaSchema: parsePrismaSchema('') })).toEqual([]);
+    });
+
+    it('deduplicates multiple unknown role references on the same route', () => {
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        roles: { known: ['ADMIN'] },
+      });
+      const route = {
+        method: 'POST' as const,
+        path: '/api/settings',
+        rawPath: '/settings',
+        confidence: 'high' as const,
+        chain: [
+          {
+            name: 'requireRole',
+            text: "requireRole('GUEST')",
+            args: ['GUEST'],
+            class: { kind: 'role' as const, value: 'GUEST' },
+            file: 'app.ts',
+            line: 5,
+          },
+          {
+            name: 'requireRole',
+            text: "requireRole('GUEST')",
+            args: ['GUEST'],
+            class: { kind: 'role' as const, value: 'GUEST' },
+            file: 'app.ts',
+            line: 6,
+          },
+        ],
+        file: 'app.ts',
+        line: 10,
+        ownership: 'none' as const,
+      };
+
+      const findings = rbac004.run({ routes: [route], config: cfg, prismaSchema: parsePrismaSchema('') });
+      expect(findings.length).toBe(1);
+    });
+  });
+
+  describe('Rule RBAC006 (unrecognized middleware)', () => {
+    it('produces RBAC006 on unknown-mw fixture and ignores neutral middleware', async () => {
+      const { project, config } = await loadFixture('unknown-mw');
+      const { routes: composed } = composeMounts(project);
+      const schema = parsePrismaSchema('');
+      const routeNodes = buildRouteNodes(composed, config, schema);
+
+      const findings = rbac006.run({
+        routes: routeNodes,
+        config,
+        prismaSchema: schema,
+      });
+
+      expect(findings.length).toBe(1);
+      expect(findings[0]?.ruleId).toBe('RBAC006');
+      expect(findings[0]?.risk).toBe('low');
+      expect(findings[0]?.confidence).toBe('medium');
+      expect(findings[0]?.message).toContain('customTelemetry');
+      expect(findings[0]?.message).not.toContain('express.json');
+    });
+
+    it('does not emit RBAC006 when auth or role middleware is present in chain', () => {
+      const cfg = ConfigSchema.parse({ entry: ['app.ts'] });
+      const route = {
+        method: 'GET' as const,
+        path: '/api/data',
+        rawPath: '/data',
+        confidence: 'high' as const,
+        chain: [
+          {
+            name: 'express.json',
+            text: 'express.json()',
+            args: [],
+            class: { kind: 'neutral' as const },
+            file: 'app.ts',
+            line: 2,
+          },
+          {
+            name: 'authenticate',
+            text: 'authenticate',
+            args: [],
+            class: { kind: 'auth' as const },
+            file: 'app.ts',
+            line: 3,
+          },
+          {
+            name: 'customTracker',
+            text: 'customTracker',
+            args: [],
+            class: { kind: 'unknown' as const },
+            file: 'app.ts',
+            line: 4,
+          },
+        ],
+        file: 'app.ts',
+        line: 10,
+        ownership: 'none' as const,
+      };
+
+      const findings = rbac006.run({ routes: [route], config: cfg, prismaSchema: parsePrismaSchema('') });
+      expect(findings).toEqual([]);
+    });
+
+    it('does not emit RBAC006 when chain is empty or contains only neutral middleware', () => {
+      const cfg = ConfigSchema.parse({ entry: ['app.ts'] });
+      const neutralRoute = {
+        method: 'GET' as const,
+        path: '/public',
+        rawPath: '/public',
+        confidence: 'high' as const,
+        chain: [
+          {
+            name: 'cors',
+            text: 'cors()',
+            args: [],
+            class: { kind: 'neutral' as const },
+            file: 'app.ts',
+            line: 2,
+          },
+        ],
+        file: 'app.ts',
+        line: 5,
+        ownership: 'none' as const,
+      };
+
+      expect(rbac006.run({ routes: [neutralRoute], config: cfg, prismaSchema: parsePrismaSchema('') })).toEqual([]);
+    });
+  });
+
+  describe('Rule RBAC008 (orphan router)', () => {
+    it('emits RBAC008 for routes originating from orphan routers', () => {
+      const cfg = ConfigSchema.parse({ entry: ['app.ts'] });
+      const orphanRoute = {
+        method: 'GET' as const,
+        path: '/internal/stats',
+        rawPath: '/stats',
+        confidence: 'high' as const,
+        chain: [],
+        file: 'src/routes/orphan.ts',
+        line: 15,
+        orphan: true,
+        ownership: 'none' as const,
+      };
+
+      const mountedRoute = {
+        method: 'GET' as const,
+        path: '/api/health',
+        rawPath: '/health',
+        confidence: 'high' as const,
+        chain: [],
+        file: 'src/routes/health.ts',
+        line: 5,
+        orphan: false,
+        ownership: 'none' as const,
+      };
+
+      const findings = rbac008.run({
+        routes: [orphanRoute, mountedRoute],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+      });
+
+      expect(findings.length).toBe(1);
+      expect(findings[0]?.ruleId).toBe('RBAC008');
+      expect(findings[0]?.risk).toBe('low');
+      expect(findings[0]?.confidence).toBe('high');
+      expect(findings[0]?.file).toBe('src/routes/orphan.ts');
+      expect(findings[0]?.route?.path).toBe('/internal/stats');
+      expect(findings[0]?.message).toContain('orphan router');
+    });
   });
 
   describe('Rule AUD001 (bypass audit client)', () => {

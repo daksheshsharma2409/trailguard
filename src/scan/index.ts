@@ -132,8 +132,12 @@ export {
   DEFAULT_RULES,
   rbac001,
   rbac002,
+  rbac003,
+  rbac004,
   rbac005,
+  rbac006,
   rbac007,
+  rbac008,
 } from './rules/index.js';
 
 export {

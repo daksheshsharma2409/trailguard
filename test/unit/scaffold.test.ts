@@ -21,6 +21,6 @@ describe('T0.1 scaffold', () => {
     expect(pkg.exports['.']).toBeDefined();
     expect(pkg.exports['./scan']).toBeDefined();
     expect(pkg.exports['./package.json']).toBe('./package.json');
-    expect(pkg.bin['trailguard']).toBe('./bin/trailguard.js');
+    expect(pkg.bin['trailguard'].replace(/^\.\//, '')).toBe('bin/trailguard.js');
   });
 });

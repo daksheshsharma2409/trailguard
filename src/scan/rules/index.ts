@@ -8,26 +8,38 @@ import type { Finding } from '../../core/types.js';
 import type { Rule, RuleContext } from '../findings.js';
 import { rbac001 } from './rbac001.js';
 import { rbac002 } from './rbac002.js';
+import { rbac003 } from './rbac003.js';
+import { rbac004 } from './rbac004.js';
 import { rbac005 } from './rbac005.js';
+import { rbac006 } from './rbac006.js';
 import { rbac007 } from './rbac007.js';
+import { rbac008 } from './rbac008.js';
 import { aud001 } from './aud001.js';
 import { aud002 } from './aud002.js';
 
 export { rbac001 } from './rbac001.js';
 export { rbac002 } from './rbac002.js';
+export { rbac003 } from './rbac003.js';
+export { rbac004 } from './rbac004.js';
 export { rbac005 } from './rbac005.js';
+export { rbac006 } from './rbac006.js';
 export { rbac007 } from './rbac007.js';
+export { rbac008 } from './rbac008.js';
 export { aud001 } from './aud001.js';
 export { aud002 } from './aud002.js';
 
 /**
- * MVP rules enabled by default in Phase 2 & Phase 4.
+ * Standard rules enabled by default in Trailguard static scanner.
  */
 export const DEFAULT_RULES: Rule[] = [
   rbac001,
   rbac002,
+  rbac003,
+  rbac004,
   rbac005,
+  rbac006,
   rbac007,
+  rbac008,
   aud001,
   aud002,
 ];

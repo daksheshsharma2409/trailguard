@@ -108,7 +108,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `Finding`, fingerprints (no line numbers), risk override via config, precedence (`RBAC001` suppresses `RBAC002` for same route).
   - Accept: fixtures `missing-auth`, `auth-no-role`, `ownership-missing`, `dynamic-mount`, `clean` produce exactly the expected rule IDs; fingerprint unchanged when unrelated lines are added above the route (test).
 
-- [ ] **T2.10 [T2] Remaining RBAC rules**
+- [x] **T2.10 [T2] Remaining RBAC rules**
   - dep: T2.9 · files: `rbac003.ts`, `rbac004.ts`, `rbac006.ts`, `rbac008.ts`
   - Accept: fixtures for each; `RBAC006` ignores `neutral` middleware.
 

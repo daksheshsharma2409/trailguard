@@ -379,6 +379,7 @@ export function buildRouteNodes(
           }
         : undefined,
       ownership,
+      orphan: cr.orphan ? true : undefined,
     };
   });
 }

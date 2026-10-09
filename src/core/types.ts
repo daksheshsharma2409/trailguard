@@ -62,6 +62,7 @@ export interface RouteNode {
     source: 'config' | 'heuristic';
   } | undefined;
   ownership: 'probable' | 'none' | 'unknown';
+  orphan?: boolean | undefined;
 }
 
 // ── Matrix ──────────────────────────────────────────────────────────────────
