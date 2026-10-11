@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GENESIS_HASH } from '../../src/core/constants.js';
-import { AuditConfigError } from '../../src/core/errors.js';
+import { AuditConfigError, AuditWriteError } from '../../src/core/errors.js';
 import { resetHeadCache } from '../../src/runtime/append.js';
 import { runWithAuditContext } from '../../src/runtime/context.js';
 import {
@@ -128,15 +128,20 @@ describe('Unit: createAuditClient (runtime/client.ts)', () => {
   });
 
   it('intercepts create, update, delete, and upsert for audited models', async () => {
+    interface ExtensionQuery {
+      create: (args: Record<string, unknown>) => Promise<unknown>;
+      update: (args: Record<string, unknown>) => Promise<unknown>;
+      delete: (args: Record<string, unknown>) => Promise<unknown>;
+      upsert: (args: Record<string, unknown>) => Promise<unknown>;
+      createMany: (args: Record<string, unknown>) => Promise<unknown>;
+      updateMany: (args: Record<string, unknown>) => Promise<unknown>;
+      deleteMany: (args: Record<string, unknown>) => Promise<unknown>;
+    }
+
     let capturedExtension: {
       name: string;
       query: {
-        $allModels: {
-          create: (args: Record<string, unknown>) => Promise<unknown>;
-          update: (args: Record<string, unknown>) => Promise<unknown>;
-          delete: (args: Record<string, unknown>) => Promise<unknown>;
-          upsert: (args: Record<string, unknown>) => Promise<unknown>;
-        };
+        $allModels: ExtensionQuery;
       };
     } | null = null;
 
@@ -147,6 +152,13 @@ describe('Unit: createAuditClient (runtime/client.ts)', () => {
         delete: async (args: Record<string, unknown>) => ({ id: (args['where'] as Record<string, unknown>)['id'], name: 'Alice' }),
         upsert: async (args: Record<string, unknown>) => ({ id: (args['where'] as Record<string, unknown>)['id'], ...(args['create'] as Record<string, unknown>) }),
         findUnique: async (args: Record<string, unknown>) => ({ id: (args['where'] as Record<string, unknown>)['id'], name: 'Selected' }),
+        createMany: async () => ({ count: 2 }),
+        updateMany: async () => ({ count: 2 }),
+        deleteMany: async () => ({ count: 2 }),
+        findMany: async () => [
+          { id: 's-1', name: 'Alice' },
+          { id: 's-2', name: 'Bob' },
+        ],
       },
       auditHead: {
         createMany: async () => ({ count: 1 }),
@@ -246,5 +258,84 @@ describe('Unit: createAuditClient (runtime/client.ts)', () => {
       }),
     );
     expect(upsertResult).toEqual({ id: 's-1', name: 'Alice' });
+
+    // 7. Bulk operations: createMany
+    const createManyResult = await runWithAuditContext({ actorId: 'u1' }, () =>
+      queryExtensions.createMany({
+        model: 'Student',
+        args: { data: [{ name: 'Alice' }, { name: 'Bob' }] },
+        query: vi.fn(),
+      }),
+    );
+    expect(createManyResult).toEqual({ count: 2 });
+
+    // createMany rejects skipDuplicates
+    await expect(
+      runWithAuditContext({ actorId: 'u1' }, () =>
+        queryExtensions.createMany({
+          model: 'Student',
+          args: { data: [{ name: 'Alice' }], skipDuplicates: true },
+          query: vi.fn(),
+        }),
+      ),
+    ).rejects.toThrow(AuditConfigError);
+
+    // 8. Bulk operations: updateMany
+    const updateManyResult = await runWithAuditContext({ actorId: 'u1' }, () =>
+      queryExtensions.updateMany({
+        model: 'Student',
+        args: { where: { marks: { lt: 50 } }, data: { marks: 50 } },
+        query: vi.fn(),
+      }),
+    );
+    expect(updateManyResult).toEqual({ count: 2 });
+
+    // 9. Bulk operations: deleteMany
+    const deleteManyResult = await runWithAuditContext({ actorId: 'u1' }, () =>
+      queryExtensions.deleteMany({
+        model: 'Student',
+        args: { where: { marks: { lt: 35 } } },
+        query: vi.fn(),
+      }),
+    );
+    expect(deleteManyResult).toEqual({ count: 2 });
+
+    // 10. Bulk operations: maxBulkRows limit enforced
+    const tinyLimitClient = createAuditClient(mockPrisma, {
+      models: ['Student'],
+      keys: { secret: masterKey },
+      maxBulkRows: 1,
+    });
+    const tinyExtensions = (tinyLimitClient as unknown as { query: { $allModels: ExtensionQuery } }).query.$allModels;
+
+    await expect(
+      runWithAuditContext({ actorId: 'u1' }, () =>
+        tinyExtensions.createMany({
+          model: 'Student',
+          args: { data: [{ name: 'A' }, { name: 'B' }] },
+          query: vi.fn(),
+        }),
+      ),
+    ).rejects.toThrow(AuditWriteError);
+
+    await expect(
+      runWithAuditContext({ actorId: 'u1' }, () =>
+        tinyExtensions.updateMany({
+          model: 'Student',
+          args: { where: {}, data: { marks: 100 } },
+          query: vi.fn(),
+        }),
+      ),
+    ).rejects.toThrow(AuditWriteError);
+
+    await expect(
+      runWithAuditContext({ actorId: 'u1' }, () =>
+        tinyExtensions.deleteMany({
+          model: 'Student',
+          args: { where: {} },
+          query: vi.fn(),
+        }),
+      ),
+    ).rejects.toThrow(AuditWriteError);
   });
 });

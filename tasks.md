@@ -190,7 +190,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: streamed export; CSV escaping + formula-injection prefix; `trailguard export --out file` uses `fs`.
   - Accept: CSV cell `=HYPERLINK(...)` is exported as `'=HYPERLINK(...)`; commas/quotes/newlines correctly quoted; large export doesn't load all rows into memory (cursor batches).
 
-- [ ] **T3.12 [T2] Bulk ops (`createMany`, `updateMany`, `deleteMany`)**
+- [x] **T3.12 [T2] Bulk ops (`createMany`, `updateMany`, `deleteMany`)**
   - dep: T3.5 · files: `src/runtime/client.ts`
   - Accept: one audit row per affected record, same tx; `maxBulkRows` exceeded → `AuditWriteError` and nothing written; `skipDuplicates` → `AuditConfigError`.
 

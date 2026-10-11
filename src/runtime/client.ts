@@ -7,8 +7,8 @@
  * @see context.md §7.5
  */
 
-import { DEFAULT_KEY_ID } from '../core/constants.js';
-import { AuditConfigError } from '../core/errors.js';
+import { DEFAULT_KEY_ID, DEFAULT_MAX_BULK_ROWS } from '../core/constants.js';
+import { AuditConfigError, AuditWriteError } from '../core/errors.js';
 import type { AuditAction, AuditOptions, CheckpointSink } from '../core/types.js';
 import { appendAuditEntries, ensureHeadRow, isHeadInitialized, type AppendedRecord, type AuditPrismaTx } from './append.js';
 import { createCheckpoint } from './checkpoint.js';
@@ -89,6 +89,10 @@ interface ModelDelegate {
   delete: (args: Record<string, unknown>) => Promise<Record<string, unknown>>;
   upsert: (args: Record<string, unknown>) => Promise<Record<string, unknown>>;
   findUnique: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
+  createMany?: (args: Record<string, unknown>) => Promise<{ count: number }>;
+  updateMany: (args: Record<string, unknown>) => Promise<{ count: number }>;
+  deleteMany: (args: Record<string, unknown>) => Promise<{ count: number }>;
+  findMany: (args: Record<string, unknown>) => Promise<Array<Record<string, unknown>>>;
 }
 
 async function emitCheckpointsIfDue(
@@ -561,6 +565,343 @@ export function createAuditClient<
               }
 
               return { result: finalResult, appended };
+            },
+            {
+              maxWait: options.tx?.maxWait ?? 5000,
+              timeout: options.tx?.timeout ?? 10000,
+            },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
+          );
+
+          return txRes.result;
+        },
+
+        async createMany(
+          this: unknown,
+          {
+            model,
+            args,
+            query,
+          }: {
+            model: string;
+            args: Record<string, unknown>;
+            query: (args: Record<string, unknown>) => Promise<unknown>;
+          },
+        ) {
+          if (!isAudited(model)) {
+            return query(args);
+          }
+
+          if (args['skipDuplicates']) {
+            throw new AuditConfigError('createMany with skipDuplicates is not supported on audited models');
+          }
+
+          const rawData = args['data'];
+          const dataArray: Array<Record<string, unknown>> = Array.isArray(rawData)
+            ? (rawData as Array<Record<string, unknown>>)
+            : rawData
+              ? [rawData as Record<string, unknown>]
+              : [];
+
+          const maxBulkRows = options.maxBulkRows ?? DEFAULT_MAX_BULK_ROWS;
+          if (dataArray.length > maxBulkRows) {
+            throw new AuditWriteError(
+              `createMany exceeded maxBulkRows limit of ${maxBulkRows.toString()} (attempted ${dataArray.length.toString()})`,
+            );
+          }
+
+          if (dataArray.length === 0) {
+            return { count: 0 };
+          }
+
+          const delegate = toDelegateName(model);
+          const context = getAuditContext(options.onMissingContext ?? 'throw');
+
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
+
+          const txRes = (await prisma.$transaction(
+            async (tx: unknown) => {
+              const txObj = tx as Record<string, ModelDelegate | undefined>;
+              const txDelegate = txObj[delegate];
+              if (!txDelegate) {
+                return { result: await query(args), appended: [] };
+              }
+
+              const entries = [];
+              for (const item of dataArray) {
+                const rawRow = await txDelegate.create({ data: item });
+                const recordId = extractRecordId(model, rawRow, item, options.idFields);
+
+                const redactedAfter = redactRecord(rawRow, {
+                  model,
+                  key: currentKey,
+                  redactFields: options.redactFields,
+                  redact: options.redact,
+                  ignoreFields: options.ignoreFields,
+                });
+
+                entries.push({
+                  model,
+                  recordId,
+                  action: 'CREATE' as AuditAction,
+                  actorId: context.actorId ?? null,
+                  actorRole: context.actorRole ?? null,
+                  requestId: context.requestId ?? null,
+                  ipAddress: context.ipAddress ?? null,
+                  userAgent: context.userAgent ?? null,
+                  before: null,
+                  after: redactedAfter,
+                  diff: null,
+                });
+              }
+
+              const appended = await appendAuditEntries(
+                tx as unknown as AuditPrismaTx,
+                entries,
+                {
+                  key: currentKey,
+                  keyId: currentKeyId,
+                  testHooks: options.testHooks,
+                },
+              );
+
+              return { result: { count: dataArray.length }, appended };
+            },
+            {
+              maxWait: options.tx?.maxWait ?? 5000,
+              timeout: options.tx?.timeout ?? 10000,
+            },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
+          );
+
+          return txRes.result;
+        },
+
+        async updateMany(
+          this: unknown,
+          {
+            model,
+            args,
+            query,
+          }: {
+            model: string;
+            args: Record<string, unknown>;
+            query: (args: Record<string, unknown>) => Promise<unknown>;
+          },
+        ) {
+          if (!isAudited(model)) {
+            return query(args);
+          }
+
+          const delegate = toDelegateName(model);
+          const where = (args['where'] as Record<string, unknown> | undefined) ?? {};
+          const context = getAuditContext(options.onMissingContext ?? 'throw');
+          const maxBulkRows = options.maxBulkRows ?? DEFAULT_MAX_BULK_ROWS;
+
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
+
+          const txRes = (await prisma.$transaction(
+            async (tx: unknown) => {
+              const txObj = tx as Record<string, ModelDelegate | undefined>;
+              const txDelegate = txObj[delegate];
+              if (!txDelegate) {
+                return { result: await query(args), appended: [] };
+              }
+
+              const beforeRows = await txDelegate.findMany({ where });
+              if (beforeRows.length > maxBulkRows) {
+                throw new AuditWriteError(
+                  `updateMany matched ${beforeRows.length.toString()} rows which exceeds maxBulkRows limit of ${maxBulkRows.toString()}`,
+                );
+              }
+
+              if (beforeRows.length === 0) {
+                const res = await txDelegate.updateMany(args);
+                return { result: res, appended: [] };
+              }
+
+              const updateRes = await txDelegate.updateMany(args);
+
+              const idDef = options.idFields?.[model] ?? options.idFields?.[delegate] ?? 'id';
+              const entries = [];
+
+              for (const beforeRow of beforeRows) {
+                const recordId = extractRecordId(model, beforeRow, undefined, options.idFields);
+
+                const whereClause: Record<string, unknown> = {};
+                if (Array.isArray(idDef)) {
+                  for (const f of idDef) whereClause[f] = beforeRow[f];
+                } else {
+                  whereClause[idDef] = beforeRow[idDef];
+                }
+
+                const afterRow = (await txDelegate.findUnique({ where: whereClause })) ?? {
+                  ...beforeRow,
+                  ...(args['data'] as Record<string, unknown>),
+                };
+
+                const redactedBefore = redactRecord(beforeRow, {
+                  model,
+                  key: currentKey,
+                  redactFields: options.redactFields,
+                  redact: options.redact,
+                  ignoreFields: options.ignoreFields,
+                });
+                const redactedAfter = redactRecord(afterRow, {
+                  model,
+                  key: currentKey,
+                  redactFields: options.redactFields,
+                  redact: options.redact,
+                  ignoreFields: options.ignoreFields,
+                });
+                const diff = createDiff(redactedBefore, redactedAfter, 'UPDATE');
+
+                entries.push({
+                  model,
+                  recordId,
+                  action: 'UPDATE' as AuditAction,
+                  actorId: context.actorId ?? null,
+                  actorRole: context.actorRole ?? null,
+                  requestId: context.requestId ?? null,
+                  ipAddress: context.ipAddress ?? null,
+                  userAgent: context.userAgent ?? null,
+                  before: redactedBefore,
+                  after: redactedAfter,
+                  diff,
+                });
+              }
+
+              const appended = await appendAuditEntries(
+                tx as unknown as AuditPrismaTx,
+                entries,
+                {
+                  key: currentKey,
+                  keyId: currentKeyId,
+                  testHooks: options.testHooks,
+                },
+              );
+
+              return { result: updateRes, appended };
+            },
+            {
+              maxWait: options.tx?.maxWait ?? 5000,
+              timeout: options.tx?.timeout ?? 10000,
+            },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
+          );
+
+          return txRes.result;
+        },
+
+        async deleteMany(
+          this: unknown,
+          {
+            model,
+            args,
+            query,
+          }: {
+            model: string;
+            args: Record<string, unknown>;
+            query: (args: Record<string, unknown>) => Promise<unknown>;
+          },
+        ) {
+          if (!isAudited(model)) {
+            return query(args);
+          }
+
+          const delegate = toDelegateName(model);
+          const where = (args['where'] as Record<string, unknown> | undefined) ?? {};
+          const context = getAuditContext(options.onMissingContext ?? 'throw');
+          const maxBulkRows = options.maxBulkRows ?? DEFAULT_MAX_BULK_ROWS;
+
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
+
+          const txRes = (await prisma.$transaction(
+            async (tx: unknown) => {
+              const txObj = tx as Record<string, ModelDelegate | undefined>;
+              const txDelegate = txObj[delegate];
+              if (!txDelegate) {
+                return { result: await query(args), appended: [] };
+              }
+
+              const beforeRows = await txDelegate.findMany({ where });
+              if (beforeRows.length > maxBulkRows) {
+                throw new AuditWriteError(
+                  `deleteMany matched ${beforeRows.length.toString()} rows which exceeds maxBulkRows limit of ${maxBulkRows.toString()}`,
+                );
+              }
+
+              if (beforeRows.length === 0) {
+                const res = await txDelegate.deleteMany(args);
+                return { result: res, appended: [] };
+              }
+
+              const deleteRes = await txDelegate.deleteMany(args);
+              const entries = [];
+
+              for (const beforeRow of beforeRows) {
+                const recordId = extractRecordId(model, beforeRow, undefined, options.idFields);
+                const redactedBefore = redactRecord(beforeRow, {
+                  model,
+                  key: currentKey,
+                  redactFields: options.redactFields,
+                  redact: options.redact,
+                  ignoreFields: options.ignoreFields,
+                });
+
+                entries.push({
+                  model,
+                  recordId,
+                  action: 'DELETE' as AuditAction,
+                  actorId: context.actorId ?? null,
+                  actorRole: context.actorRole ?? null,
+                  requestId: context.requestId ?? null,
+                  ipAddress: context.ipAddress ?? null,
+                  userAgent: context.userAgent ?? null,
+                  before: redactedBefore,
+                  after: null,
+                  diff: null,
+                });
+              }
+
+              const appended = await appendAuditEntries(
+                tx as unknown as AuditPrismaTx,
+                entries,
+                {
+                  key: currentKey,
+                  keyId: currentKeyId,
+                  testHooks: options.testHooks,
+                },
+              );
+
+              return { result: deleteRes, appended };
             },
             {
               maxWait: options.tx?.maxWait ?? 5000,
