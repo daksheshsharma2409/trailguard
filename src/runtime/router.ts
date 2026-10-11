@@ -19,6 +19,7 @@ import { AuditConfigError } from '../core/errors.js';
 import type { AuditAction, Checkpoint, KeysOptions, KeysShorthand } from '../core/types.js';
 import { getHistory, type HistoryPrismaClient } from './history.js';
 import { verifyAuditChain, type VerifyPrismaClient } from './verify.js';
+import { exportAuditLogsToStream, type ExportPrismaClient } from './export.js';
 
 export interface RouterPrismaClient {
   auditLog: {
@@ -262,6 +263,48 @@ export function auditRouter(options: AuditRouterOptions): Router {
 
       // context.md §7.10: "HTTP 200 either way; body.valid tells truth"
       res.status(200).json(result);
+    }),
+  );
+
+  // GET /export?format=json|csv
+  router.get(
+    '/export',
+    asyncHandler(async (req: Request, res: Response): Promise<void> => {
+      const format = req.query['format'] === 'csv' ? 'csv' : 'json';
+      const model = typeof req.query['model'] === 'string' ? req.query['model'] : undefined;
+      const recordId = typeof req.query['recordId'] === 'string' ? req.query['recordId'] : undefined;
+      const actorId = typeof req.query['actorId'] === 'string' ? req.query['actorId'] : undefined;
+      const action =
+        typeof req.query['action'] === 'string' && ['CREATE', 'UPDATE', 'DELETE'].includes(req.query['action'])
+          ? (req.query['action'] as AuditAction)
+          : undefined;
+      const from = typeof req.query['from'] === 'string' ? req.query['from'] : undefined;
+      const to = typeof req.query['to'] === 'string' ? req.query['to'] : undefined;
+
+      if (model && opts.models && opts.models.length > 0) {
+        const isKnown = opts.models.some((m) => m.toLowerCase() === model.toLowerCase());
+        if (!isKnown) {
+          res.status(400).json({
+            error: `Unknown model '${model}'. Valid models: ${opts.models.join(', ')}`,
+          });
+          return;
+        }
+      }
+
+      if (format === 'csv') {
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="audit-log.csv"');
+      } else {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="audit-log.json"');
+      }
+
+      await exportAuditLogsToStream(
+        prisma as unknown as ExportPrismaClient,
+        { format, model, recordId, actorId, action, from, to },
+        res,
+      );
+      res.end();
     }),
   );
 

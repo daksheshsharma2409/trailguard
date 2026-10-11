@@ -78,4 +78,14 @@ export {
   type AuditRouterOptions,
   type RouterPrismaClient,
 } from './runtime/router.js';
-// export { exportAuditLogs } from './runtime/export.js'; // T3.11
+export {
+  exportAuditLogs,
+  exportAuditLogsToStream,
+  exportAuditLogsToFile,
+  escapeCsvCell,
+  serializeRowForJson,
+  CSV_COLUMNS,
+  type ExportAuditLogsOptions,
+  type ExportPrismaClient,
+} from './runtime/export.js';
+

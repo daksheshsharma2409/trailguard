@@ -185,7 +185,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §7.10` (logs, logs/:seq, history, verify; export in T3.11). zod-validated query; pagination caps.
   - Accept: constructing without `guard` throws `AuditConfigError`; unauthenticated → guard's response; ADMIN gets data; `pageSize=100000` is capped; unknown `model` query → 400; responses never contain raw redacted values.
 
-- [ ] **T3.11 [T2] Export JSON/CSV**
+- [x] **T3.11 [T2] Export JSON/CSV**
   - dep: T3.10 · files: `src/runtime/export.ts`
   - Do: streamed export; CSV escaping + formula-injection prefix; `trailguard export --out file` uses `fs`.
   - Accept: CSV cell `=HYPERLINK(...)` is exported as `'=HYPERLINK(...)`; commas/quotes/newlines correctly quoted; large export doesn't load all rows into memory (cursor batches).

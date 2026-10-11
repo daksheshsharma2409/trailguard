@@ -32,6 +32,12 @@ import { createDiff } from './diff.js';
 import { getHistory, type GetHistoryOptions, type HistoryEntry, type HistoryPrismaClient } from './history.js';
 import { redactRecord } from './redact.js';
 import { verifyAuditChain, type VerifyOptions, type VerifyPrismaClient } from './verify.js';
+import {
+  exportAuditLogs,
+  exportAuditLogsToFile,
+  type ExportAuditLogsOptions,
+  type ExportPrismaClient,
+} from './export.js';
 
 export interface ManualLogInput {
   model: string;
@@ -309,6 +315,26 @@ export class AuditChainService {
     });
 
     return rows as unknown as HistoryEntry[];
+  }
+
+  /**
+   * Stream audit logs as JSON or CSV chunks.
+   *
+   * @param options - Export options (format, filters, batchSize).
+   * @returns AsyncIterable of string chunks.
+   */
+  exportStream(options?: ExportAuditLogsOptions): AsyncIterable<string> {
+    return exportAuditLogs(this.prisma as unknown as ExportPrismaClient, options);
+  }
+
+  /**
+   * Export audit logs directly to a file on disk.
+   *
+   * @param filePath - Output file path.
+   * @param options - Export options (format, filters, batchSize).
+   */
+  async exportToFile(filePath: string, options?: ExportAuditLogsOptions): Promise<void> {
+    await exportAuditLogsToFile(this.prisma as unknown as ExportPrismaClient, options ?? {}, filePath);
   }
 
   private async emitCheckpointIfDue(record: AppendedRecord): Promise<void> {

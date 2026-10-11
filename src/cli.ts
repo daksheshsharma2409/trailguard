@@ -13,6 +13,7 @@ import * as path from 'node:path';
 import { scan } from './scan/index.js';
 import { runVerifyCommand, type VerifyCommandOptions } from './cli/verify-command.js';
 import { runCiCommand, type CiCommandOptions } from './cli/ci-command.js';
+import { runExportCommand, type ExportCommandOptions } from './cli/export-command.js';
 import type { Risk } from './core/types.js';
 
 // Resolve package.json for the version string
@@ -173,10 +174,26 @@ program
   .option('--config <path>', 'Path to trailguard.config.ts/js/json')
   .option('--format <fmt>', 'json | csv', 'json')
   .option('--out <file>', 'Output file path (required for large exports)')
-  .action((_opts: unknown) => {
-    // Implemented in T5.3
-    console.error('trailguard export: not yet implemented');
-    process.exit(2);
+  .option('--model <name>', 'Filter by model name')
+  .option('--record-id <id>', 'Filter by record ID')
+  .option('--actor-id <id>', 'Filter by actor ID')
+  .option('--from <iso>', 'Filter entries created at or after date')
+  .option('--to <iso>', 'Filter entries created at or before date')
+  .action(async (opts: ExportCommandOptions) => {
+    try {
+      const outcome = await runExportCommand(opts);
+      if (outcome.message) {
+        console.log(outcome.message);
+      }
+      process.exit(outcome.exitCode);
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(`trailguard export error: ${err.message}`);
+      } else {
+        console.error('trailguard export error:', String(err));
+      }
+      process.exit(2);
+    }
   });
 
 // ── checkpoint ─────────────────────────────────────────────────────────────
