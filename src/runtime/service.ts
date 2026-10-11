@@ -29,7 +29,14 @@ import { createCheckpoint } from './checkpoint.js';
 import { resolveKeys, type NormalizedKeys } from './client.js';
 import { getAuditContext } from './context.js';
 import { createDiff } from './diff.js';
-import { getHistory, type GetHistoryOptions, type HistoryEntry, type HistoryPrismaClient } from './history.js';
+import {
+  getHistory,
+  getRestorePreview,
+  type GetHistoryOptions,
+  type HistoryEntry,
+  type HistoryPrismaClient,
+  type RestorePreviewResult,
+} from './history.js';
 import { redactRecord } from './redact.js';
 import { verifyAuditChain, type VerifyOptions, type VerifyPrismaClient } from './verify.js';
 import {
@@ -233,6 +240,24 @@ export class AuditChainService {
       model,
       recordId,
       options,
+    );
+  }
+
+  /**
+   * Retrieve restore preview for a specific model record.
+   *
+   * @param model - Model name.
+   * @param recordId - Record ID.
+   * @returns RestorePreviewResult or null if record was never audited.
+   */
+  async restorePreview(
+    model: string,
+    recordId: string,
+  ): Promise<RestorePreviewResult | null> {
+    return getRestorePreview(
+      this.prisma as unknown as HistoryPrismaClient,
+      model,
+      recordId,
     );
   }
 

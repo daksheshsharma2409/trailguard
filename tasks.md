@@ -194,7 +194,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - dep: T3.5 · files: `src/runtime/client.ts`
   - Accept: one audit row per affected record, same tx; `maxBulkRows` exceeded → `AuditWriteError` and nothing written; `skipDuplicates` → `AuditConfigError`.
 
-- [ ] **T3.13 [T2] Restore preview**
+- [x] **T3.13 [T2] Restore preview**
   - dep: T3.10 · Accept: `GET /restore-preview/:model/:recordId` returns last known state (uses `before` of the last DELETE); redacted fields remain redacted; 404 when never seen.
 
 - [ ] **T3.14 [T3] `$auditedTransaction(fn)` on the audited client**

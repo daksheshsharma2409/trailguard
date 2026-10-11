@@ -70,8 +70,10 @@ export {
 } from './runtime/service.js';
 export {
   getHistory,
+  getRestorePreview,
   type HistoryEntry,
   type GetHistoryOptions,
+  type RestorePreviewResult,
 } from './runtime/history.js';
 export {
   auditRouter,

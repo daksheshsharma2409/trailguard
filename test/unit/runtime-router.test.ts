@@ -193,4 +193,125 @@ describe('Unit: auditRouter (runtime/router.ts)', () => {
     expect(res.body.valid).toBe(true);
     expect(res.body.checkedRecords).toBe(0);
   });
+
+  describe('GET /restore-preview/:model/:recordId', () => {
+    it('returns 404 when model and recordId have never been audited', async () => {
+      const mockPrisma: RouterPrismaClient = {
+        auditLog: {
+          findMany: async () => [],
+        },
+      };
+
+      const app = express();
+      app.use(
+        '/audit',
+        auditRouter({
+          guard: (req, res, next) => next(),
+          prisma: mockPrisma,
+          keys: { secret: masterKey },
+        }),
+      );
+
+      const res = await request(app).get('/audit/restore-preview/Student/rec-none');
+      expect(res.status).toBe(404);
+      expect(res.body.error).toContain('No audit history found for Student:rec-none');
+    });
+
+    it('returns 200 with before state when last action was DELETE, keeping redacted fields', async () => {
+      const mockPrisma: RouterPrismaClient = {
+        auditLog: {
+          findMany: async () => [
+            {
+              seq: 99n,
+              model: 'Student',
+              recordId: 'rec-1',
+              action: 'DELETE',
+              before: { id: 'rec-1', name: 'Alice', ssn: '[REDACTED:12b]' },
+              after: null,
+            },
+          ],
+        },
+      };
+
+      const app = express();
+      app.use(
+        '/audit',
+        auditRouter({
+          guard: (req, res, next) => next(),
+          prisma: mockPrisma,
+          keys: { secret: masterKey },
+          models: ['Student'],
+        }),
+      );
+
+      const res = await request(app).get('/audit/restore-preview/Student/rec-1');
+      expect(res.status).toBe(200);
+      expect(res.body.action).toBe('DELETE');
+      expect(res.body.seq).toBe('99');
+      expect(res.body.model).toBe('Student');
+      expect(res.body.recordId).toBe('rec-1');
+      expect(res.body.state).toEqual({ id: 'rec-1', name: 'Alice', ssn: '[REDACTED:12b]' });
+      expect(res.body.name).toBe('Alice');
+      expect(res.body.ssn).toBe('[REDACTED:12b]');
+    });
+
+    it('returns 200 with after state when last action was UPDATE or CREATE', async () => {
+      const mockPrisma: RouterPrismaClient = {
+        auditLog: {
+          findMany: async () => [
+            {
+              seq: 105n,
+              model: 'Student',
+              recordId: 'rec-1',
+              action: 'UPDATE',
+              before: { id: 'rec-1', name: 'Alice' },
+              after: { id: 'rec-1', name: 'Alice Updated', email: 'alice@example.com' },
+            },
+          ],
+        },
+      };
+
+      const app = express();
+      app.use(
+        '/audit',
+        auditRouter({
+          guard: (req, res, next) => next(),
+          prisma: mockPrisma,
+          keys: { secret: masterKey },
+        }),
+      );
+
+      const res = await request(app).get('/audit/restore-preview/Student/rec-1');
+      expect(res.status).toBe(200);
+      expect(res.body.action).toBe('UPDATE');
+      expect(res.body.state).toEqual({
+        id: 'rec-1',
+        name: 'Alice Updated',
+        email: 'alice@example.com',
+      });
+    });
+
+    it('returns 400 when model is unknown and models filter is configured', async () => {
+      const mockPrisma: RouterPrismaClient = {
+        auditLog: {
+          findMany: async () => [],
+        },
+      };
+
+      const app = express();
+      app.use(
+        '/audit',
+        auditRouter({
+          guard: (req, res, next) => next(),
+          prisma: mockPrisma,
+          keys: { secret: masterKey },
+          models: ['Student'],
+        }),
+      );
+
+      const res = await request(app).get('/audit/restore-preview/UnknownModel/rec-1');
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Unknown model 'UnknownModel'");
+    });
+  });
 });

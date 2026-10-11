@@ -70,4 +70,85 @@ describe('Unit: getHistory (runtime/history.ts)', () => {
       skip: 5,
     });
   });
+
+  describe('getRestorePreview', () => {
+    it('returns null when record has no audit entries', async () => {
+      const mockPrisma: HistoryPrismaClient = {
+        auditLog: {
+          findMany: async () => [],
+        },
+      };
+
+      const preview = await (await import('../../src/runtime/history.js')).getRestorePreview(
+        mockPrisma,
+        'Student',
+        'nonexistent-id',
+      );
+
+      expect(preview).toBeNull();
+    });
+
+    it('returns before state when the last recorded action was DELETE', async () => {
+      const mockPrisma: HistoryPrismaClient = {
+        auditLog: {
+          findMany: async () => [
+            {
+              seq: 42n,
+              model: 'Student',
+              recordId: 'rec-1',
+              action: 'DELETE',
+              before: { id: 'rec-1', name: 'Alice', token: '[REDACTED:16b]' },
+              after: null,
+            },
+          ],
+        },
+      };
+
+      const preview = await (await import('../../src/runtime/history.js')).getRestorePreview(
+        mockPrisma,
+        'Student',
+        'rec-1',
+      );
+
+      expect(preview).not.toBeNull();
+      expect(preview?.model).toBe('Student');
+      expect(preview?.recordId).toBe('rec-1');
+      expect(preview?.action).toBe('DELETE');
+      expect(preview?.seq).toBe('42');
+      expect(preview?.state).toEqual({ id: 'rec-1', name: 'Alice', token: '[REDACTED:16b]' });
+    });
+
+    it('returns after state when the last recorded action was UPDATE or CREATE', async () => {
+      const mockPrisma: HistoryPrismaClient = {
+        auditLog: {
+          findMany: async () => [
+            {
+              seq: 15n,
+              model: 'Student',
+              recordId: 'rec-2',
+              action: 'UPDATE',
+              before: { id: 'rec-2', name: 'Bob' },
+              after: JSON.stringify({ id: 'rec-2', name: 'Robert', passwordHash: '[REDACTED:32b]' }),
+            },
+          ],
+        },
+      };
+
+      const preview = await (await import('../../src/runtime/history.js')).getRestorePreview(
+        mockPrisma,
+        'Student',
+        'rec-2',
+      );
+
+      expect(preview).not.toBeNull();
+      expect(preview?.action).toBe('UPDATE');
+      expect(preview?.seq).toBe('15');
+      expect(preview?.state).toEqual({
+        id: 'rec-2',
+        name: 'Robert',
+        passwordHash: '[REDACTED:32b]',
+      });
+    });
+  });
 });
+

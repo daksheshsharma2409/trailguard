@@ -222,6 +222,10 @@ describe('Unit: scan() options and reporters (scan/scan.ts)', () => {
 
       expect(sarifResult.report).toContain('suppressions');
     } finally {
+      const fixtureBaseline = path.join(path.dirname(missingAuthConfig), relBaseline);
+      if (fs.existsSync(fixtureBaseline)) {
+        fs.unlinkSync(fixtureBaseline);
+      }
       if (fs.existsSync(relBaseline)) {
         fs.unlinkSync(relBaseline);
       }

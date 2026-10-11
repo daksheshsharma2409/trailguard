@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { MAX_PAGE_SIZE } from '../core/constants.js';
 import { AuditConfigError } from '../core/errors.js';
 import type { AuditAction, Checkpoint, KeysOptions, KeysShorthand } from '../core/types.js';
-import { getHistory, type HistoryPrismaClient } from './history.js';
+import { getHistory, getRestorePreview, type HistoryPrismaClient } from './history.js';
 import { verifyAuditChain, type VerifyPrismaClient } from './verify.js';
 import { exportAuditLogsToStream, type ExportPrismaClient } from './export.js';
 
@@ -305,6 +305,64 @@ export function auditRouter(options: AuditRouterOptions): Router {
         res,
       );
       res.end();
+    }),
+  );
+
+  // GET /restore-preview/:model/:recordId
+  router.get(
+    '/restore-preview/:model/:recordId',
+    asyncHandler(async (req: Request, res: Response): Promise<void> => {
+      const model = req.params['model'];
+      const recordId = req.params['recordId'];
+
+      if (!model || !recordId) {
+        res.status(400).json({ error: 'model and recordId parameters are required' });
+        return;
+      }
+
+      if (opts.models && opts.models.length > 0) {
+        const isKnown = opts.models.some((m) => m.toLowerCase() === model.toLowerCase());
+        if (!isKnown) {
+          res.status(400).json({
+            error: `Unknown model '${model}'. Valid models: ${opts.models.join(', ')}`,
+          });
+          return;
+        }
+      }
+
+      const preview = await getRestorePreview(
+        prisma as unknown as HistoryPrismaClient,
+        model,
+        recordId,
+      );
+
+      if (!preview) {
+        res.status(404).json({
+          error: `No audit history found for ${model}:${recordId}`,
+        });
+        return;
+      }
+
+      const baseResponse: Record<string, unknown> = {
+        model: preview.model,
+        recordId: preview.recordId,
+        action: preview.action,
+        seq: preview.seq,
+        state: preview.state,
+      };
+
+      if (
+        typeof preview.state === 'object' &&
+        preview.state !== null &&
+        !Array.isArray(preview.state)
+      ) {
+        res.status(200).json({
+          ...(preview.state as Record<string, unknown>),
+          ...baseResponse,
+        });
+      } else {
+        res.status(200).json(baseResponse);
+      }
     }),
   );
 
