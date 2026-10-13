@@ -138,6 +138,9 @@ export {
   rbac006,
   rbac007,
   rbac008,
+  aud001,
+  aud002,
+  aud003,
 } from './rules/index.js';
 
 export {

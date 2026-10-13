@@ -16,6 +16,7 @@ import { rbac007 } from './rbac007.js';
 import { rbac008 } from './rbac008.js';
 import { aud001 } from './aud001.js';
 import { aud002 } from './aud002.js';
+import { aud003 } from './aud003.js';
 
 export { rbac001 } from './rbac001.js';
 export { rbac002 } from './rbac002.js';
@@ -27,6 +28,7 @@ export { rbac007 } from './rbac007.js';
 export { rbac008 } from './rbac008.js';
 export { aud001 } from './aud001.js';
 export { aud002 } from './aud002.js';
+export { aud003 } from './aud003.js';
 
 /**
  * Standard rules enabled by default in Trailguard static scanner.
@@ -42,6 +44,7 @@ export const DEFAULT_RULES: Rule[] = [
   rbac008,
   aud001,
   aud002,
+  aud003,
 ];
 
 /**

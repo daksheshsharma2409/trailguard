@@ -27,6 +27,7 @@ import {
   rbac008,
   aud001,
   aud002,
+  aud003,
 } from '../../src/scan/rules/index.js';
 import { findPrismaWrites } from '../../src/scan/prisma-writes.js';
 import { ConfigSchema } from '../../src/config/schema.js';
@@ -255,7 +256,8 @@ describe('Fixtures verification for acceptance criteria', () => {
     expect(DEFAULT_RULES).toContain(rbac008);
     expect(DEFAULT_RULES).toContain(aud001);
     expect(DEFAULT_RULES).toContain(aud002);
-    expect(DEFAULT_RULES.length).toBe(10);
+    expect(DEFAULT_RULES).toContain(aud003);
+    expect(DEFAULT_RULES.length).toBe(11);
   });
 
   describe('Rule RBAC003 (unauthenticated read of private resource)', () => {
@@ -970,6 +972,137 @@ describe('Fixtures verification for acceptance criteria', () => {
         aud001.run({
           routes: [],
           config: cfgActive,
+          prismaSchema: parsePrismaSchema(''),
+        }),
+      ).toEqual([]);
+    });
+  });
+
+  describe('Rule AUD003 (raw SQL writes)', () => {
+    it('fixture raw-sql produces AUD003 MEDIUM findings with route info and method', async () => {
+      const { project, config } = await loadFixture('raw-sql');
+      const { routes: composed } = composeMounts(project);
+      const schema = parsePrismaSchema('');
+      const routeNodes = buildRouteNodes(composed, config, schema);
+      const prismaWrites = findPrismaWrites(project, config, routeNodes);
+
+      const findings = aud003.run({
+        routes: routeNodes,
+        config,
+        prismaSchema: schema,
+        prismaWrites,
+        project,
+      });
+
+      expect(findings.length).toBe(2);
+      for (const finding of findings) {
+        expect(finding.ruleId).toBe('AUD003');
+        expect(finding.risk).toBe('medium');
+        expect(finding.confidence).toBe('medium');
+        expect(finding.message).toContain('Raw SQL write');
+        expect(finding.fingerprint).toHaveLength(64);
+      }
+
+      const methods = findings.map((f) => f.message);
+      expect(methods.some((m) => m.includes('$executeRaw'))).toBe(true);
+      expect(methods.some((m) => m.includes('$executeRawUnsafe'))).toBe(true);
+    });
+
+    it('produces 0 findings when audit.models is empty', async () => {
+      const { project, config } = await loadFixture('raw-sql');
+      const emptyModelsConfig = {
+        ...config,
+        audit: {
+          ...config.audit,
+          models: [],
+        },
+      };
+
+      const findings = aud003.run({
+        routes: [],
+        config: emptyModelsConfig,
+        prismaSchema: parsePrismaSchema(''),
+        project,
+      });
+
+      expect(findings).toEqual([]);
+    });
+
+    it('produces 0 findings when AUD003 is turned off', async () => {
+      const { project, config } = await loadFixture('raw-sql');
+      const disabledRuleConfig = {
+        ...config,
+        rules: {
+          ...config.rules,
+          AUD003: 'off' as const,
+        },
+      };
+
+      const findings = aud003.run({
+        routes: [],
+        config: disabledRuleConfig,
+        prismaSchema: parsePrismaSchema(''),
+        project,
+      });
+
+      expect(findings).toEqual([]);
+    });
+
+    it('guarantees AUD003 fingerprint stability across line shifts', () => {
+      const codeA = `
+        import express from 'express';
+        const prisma: any = {};
+        prisma.$executeRaw\`UPDATE Student SET name = 'X'\`;
+      `;
+
+      const codeB = `
+        // Added comment
+        // Line 2
+        // Line 3
+        import express from 'express';
+        const dummy = 123;
+        const prisma: any = {};
+        prisma.$executeRaw\`UPDATE Student SET name = 'X'\`;
+      `;
+
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        audit: { models: ['Student'] },
+      });
+
+      const pA = new Project({ useInMemoryFileSystem: true });
+      pA.createSourceFile('app.ts', codeA);
+      const findingsA = aud003.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        project: pA,
+      });
+
+      const pB = new Project({ useInMemoryFileSystem: true });
+      pB.createSourceFile('app.ts', codeB);
+      const findingsB = aud003.run({
+        routes: [],
+        config: cfg,
+        prismaSchema: parsePrismaSchema(''),
+        project: pB,
+      });
+
+      expect(findingsA.length).toBe(1);
+      expect(findingsB.length).toBe(1);
+      expect(findingsA[0]?.fingerprint).toBe(findingsB[0]?.fingerprint);
+    });
+
+    it('returns empty array when neither prismaWrites nor project is available', () => {
+      const cfg = ConfigSchema.parse({
+        entry: ['app.ts'],
+        audit: { models: ['Student'] },
+      });
+
+      expect(
+        aud003.run({
+          routes: [],
+          config: cfg,
           prismaSchema: parsePrismaSchema(''),
         }),
       ).toEqual([]);

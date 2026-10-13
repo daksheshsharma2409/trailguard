@@ -221,7 +221,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: find `app.use(path, ...mw, auditRouter(...))` (factory names from `audit.routerNames`); require `auth` **and** a `role:*` in the effective chain.
   - Accept: unguarded → `AUD002` HIGH; guarded → none; guard supplied only via `auditRouter({ guard })` option (static literal containing a classified auth+role) also counts as guarded.
 
-- [ ] **T4.4 [T2] Rule `AUD003` (raw SQL writes)**
+- [x] **T4.4 [T2] Rule `AUD003` (raw SQL writes)**
   - dep: T4.1 · Accept: `raw-sql` fixture → `AUD003` MEDIUM; no finding when `audit.models` is empty.
 
 - [ ] **T4.5 [T2] Drift engine + `trailguard drift`**
