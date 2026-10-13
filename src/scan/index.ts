@@ -179,8 +179,17 @@ export type {
   PrismaWriteDiscoveryResult,
 } from './prisma-writes.js';
 
-// Static API — stubs until future tasks implement them
-// export { drift } from './drift.js';
+export {
+  detectDrift,
+  drift,
+  formatDriftReport,
+  computeDriftFingerprint,
+} from './drift.js';
+export type {
+  DriftOptions,
+  DriftResult,
+  DriftPrismaClient,
+} from './drift.js';
 
 
 

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
 import { scan } from './scan/index.js';
 import { runVerifyCommand, type VerifyCommandOptions } from './cli/verify-command.js';
+import { runDriftCommand, type DriftCommandOptions } from './cli/drift-command.js';
 import { runCiCommand, type CiCommandOptions } from './cli/ci-command.js';
 import { runExportCommand, type ExportCommandOptions } from './cli/export-command.js';
 import type { Risk } from './core/types.js';
@@ -116,10 +117,25 @@ program
   .description('Compare declared matrix vs observed audit-log behavior')
   .option('--config <path>', 'Path to trailguard.config.ts/js/json')
   .option('--since <iso>', 'Only consider audit entries after this date')
-  .action((_opts: unknown) => {
-    // Implemented in T5.3
-    console.error('trailguard drift: not yet implemented');
-    process.exit(2);
+  .option('--fail-on <level>', 'Threshold for drift findings: none | low | medium | high', 'high')
+  .option('--baseline <file>', 'Baseline file to suppress matching findings')
+  .action(async (opts: DriftCommandOptions) => {
+    try {
+      const outcome = await runDriftCommand(opts);
+      if (outcome.exitCode === 0) {
+        console.log(outcome.message);
+      } else {
+        console.error(outcome.message);
+      }
+      process.exit(outcome.exitCode);
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(`trailguard drift error: ${err.message}`);
+      } else {
+        console.error('trailguard drift error:', String(err));
+      }
+      process.exit(2);
+    }
   });
 
 // ── ci ─────────────────────────────────────────────────────────────────────

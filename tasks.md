@@ -224,7 +224,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T4.4 [T2] Rule `AUD003` (raw SQL writes)**
   - dep: T4.1 · Accept: `raw-sql` fixture → `AUD003` MEDIUM; no finding when `audit.models` is empty.
 
-- [ ] **T4.5 [T2] Drift engine + `trailguard drift`**
+- [x] **T4.5 [T2] Drift engine + `trailguard drift`**
   - dep: T2.12, T3.6 · files: `src/scan/drift.ts`, integration tests
   - Do: `context.md §8`; `--since`; uses same `Finding` + baseline.
   - Accept: seeded audit rows where a `TEACHER` deleted a `User` while matrix says ADMIN-only → one `DRIFT001` with sample seqs; allowed activity → none; role `SYSTEM` → no `DRIFT002` by default; exit code 1 on violations.
