@@ -249,7 +249,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T5.4 [T2] `trailguard init`**
   - dep: T1.5 · Accept: writes `trailguard.config.ts` (refuses to overwrite without `--force`), prints/copies the Prisma snippet, prints a 5-line "next steps".
 
-- [ ] **T5.5 [T2] SARIF reporter**
+- [x] **T5.5 [T2] SARIF reporter**
   - dep: T2.13 · Accept: output validates against SARIF 2.1.0 schema (vendor the schema in test fixtures); `partialFingerprints` set from our fingerprints.
 
 ---

@@ -29,6 +29,7 @@ import { findPrismaWrites } from './prisma-writes.js';
 import { deriveMatrix } from './matrix.js';
 import { formatMarkdownReport } from './report/markdown.js';
 import { formatJsonReport } from './report/json.js';
+import { formatSarifReport } from './report/sarif.js';
 import type { Risk, ScanResult } from '../core/types.js';
 
 export interface ScanOptions {
@@ -54,40 +55,6 @@ export interface ScanOutput extends ScanResult {
   report: string;
   exitCode: 0 | 1;
   thresholdExceeded: boolean;
-}
-
-function formatSarifReport(scanResult: ScanResult): string {
-  const sarif = {
-    $schema:
-      'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
-    version: '2.1.0',
-    runs: [
-      {
-        tool: {
-          driver: {
-            name: 'trailguard',
-            version: scanResult.version,
-          },
-        },
-        results: scanResult.findings.map((f) => ({
-          ruleId: f.ruleId,
-          level: f.risk === 'high' ? 'error' : f.risk === 'medium' ? 'warning' : 'note',
-          message: { text: f.message },
-          partialFingerprints: { primaryLocationLineHash: f.fingerprint },
-          suppressions: f.suppressed ? [{ kind: 'external' }] : undefined,
-          locations: [
-            {
-              physicalLocation: {
-                artifactLocation: { uri: f.file },
-                region: { startLine: f.line },
-              },
-            },
-          ],
-        })),
-      },
-    ],
-  };
-  return `${JSON.stringify(sarif, null, 2)}\n`;
 }
 
 /**

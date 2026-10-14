@@ -158,8 +158,17 @@ export {
   parseJsonReport,
   validateScanResult,
   ScanResultSchema,
+  formatSarifReport,
 } from './report/index.js';
-export type { MarkdownReportOptions } from './report/index.js';
+export type {
+  MarkdownReportOptions,
+  SarifLog,
+  SarifRun,
+  SarifResult,
+  SarifReportingDescriptor,
+  SarifLocation,
+  SarifSuppression,
+} from './report/index.js';
 
 export { scan } from './scan.js';
 export type { ScanOptions, ScanOutput } from './scan.js';

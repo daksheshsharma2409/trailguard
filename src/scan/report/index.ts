@@ -17,3 +17,14 @@ export {
   validateScanResult,
   ScanResultSchema,
 } from './json.js';
+
+export { formatSarifReport } from './sarif.js';
+export type {
+  SarifLog,
+  SarifRun,
+  SarifResult,
+  SarifReportingDescriptor,
+  SarifLocation,
+  SarifSuppression,
+} from './sarif.js';
+
