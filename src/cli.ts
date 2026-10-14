@@ -15,6 +15,7 @@ import { runVerifyCommand, type VerifyCommandOptions } from './cli/verify-comman
 import { runDriftCommand, type DriftCommandOptions } from './cli/drift-command.js';
 import { runCiCommand, type CiCommandOptions } from './cli/ci-command.js';
 import { runExportCommand, type ExportCommandOptions } from './cli/export-command.js';
+import { runCheckpointCommand, type CheckpointCommandOptions } from './cli/checkpoint-command.js';
 import type { Risk } from './core/types.js';
 
 // Resolve package.json for the version string
@@ -218,10 +219,24 @@ program
   .description('Emit a signed checkpoint for the current chain head')
   .option('--config <path>', 'Path to trailguard.config.ts/js/json')
   .option('--key-env <name>', 'Env var holding the HMAC key', 'TRAILGUARD_KEY')
-  .action((_opts: unknown) => {
-    // Implemented in T5.3
-    console.error('trailguard checkpoint: not yet implemented');
-    process.exit(2);
+  .option('--out <file>', 'Write checkpoint to file instead of config sink or stdout')
+  .action(async (opts: CheckpointCommandOptions) => {
+    try {
+      const outcome = await runCheckpointCommand(opts);
+      if (outcome.exitCode === 0) {
+        console.log(outcome.message);
+      } else {
+        console.error(outcome.message);
+      }
+      process.exit(outcome.exitCode);
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(`trailguard checkpoint error: ${err.message}`);
+      } else {
+        console.error('trailguard checkpoint error:', String(err));
+      }
+      process.exit(2);
+    }
   });
 
 // ── init ───────────────────────────────────────────────────────────────────

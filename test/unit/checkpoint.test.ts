@@ -83,4 +83,71 @@ describe('runtime/checkpoint', () => {
     expect(received).toHaveLength(1);
     expect(received[0]?.seq).toBe('10');
   });
+
+  describe('runCheckpointCommand (cli/checkpoint-command.ts)', () => {
+    it('returns exit code 2 when HMAC key is missing from environment', async () => {
+      const { runCheckpointCommand } = await import('../../src/cli/checkpoint-command.js');
+      delete process.env.TEST_CHECKPOINT_MISSING_KEY;
+
+      const outcome = await runCheckpointCommand({
+        keyEnv: 'TEST_CHECKPOINT_MISSING_KEY',
+      });
+
+      expect(outcome.exitCode).toBe(2);
+      expect(outcome.message).toContain('is not set or empty');
+    });
+
+    it('returns exit code 2 when audit head row does not exist', async () => {
+      const { runCheckpointCommand } = await import('../../src/cli/checkpoint-command.js');
+      process.env.TEST_CHECKPOINT_KEY = masterKey;
+
+      const mockPrisma = {
+        auditHead: {
+          findUnique: async () => null,
+        },
+      };
+
+      const outcome = await runCheckpointCommand({
+        keyEnv: 'TEST_CHECKPOINT_KEY',
+        prisma: mockPrisma as unknown as import('../../src/runtime/verify.js').VerifyPrismaClient,
+      });
+
+      expect(outcome.exitCode).toBe(2);
+      expect(outcome.message).toContain('audit head is not initialized');
+    });
+
+    it('successfully creates and emits a signed checkpoint to file', async () => {
+      const { runCheckpointCommand } = await import('../../src/cli/checkpoint-command.js');
+      process.env.TEST_CHECKPOINT_KEY = masterKey;
+
+      const outFile = join(tmpdir(), `cp-cmd-${String(Date.now())}.jsonl`);
+
+      const mockPrisma = {
+        auditHead: {
+          findUnique: async () => ({
+            id: 1,
+            lastSeq: 99n,
+            lastHash: 'aabbccdd99887766554433221100ffeeddccbbaa',
+          }),
+        },
+      };
+
+      const outcome = await runCheckpointCommand({
+        keyEnv: 'TEST_CHECKPOINT_KEY',
+        out: outFile,
+        prisma: mockPrisma as unknown as import('../../src/runtime/verify.js').VerifyPrismaClient,
+      });
+
+      expect(outcome.exitCode).toBe(0);
+      expect(outcome.message).toContain('Checkpoint emitted for seq 99');
+      expect(outcome.checkpoint?.seq).toBe('99');
+
+      const saved = await fs.readFile(outFile, 'utf8');
+      const parsed = JSON.parse(saved.trim()) as Checkpoint;
+      expect(parsed.seq).toBe('99');
+      expect(parsed.sig).toBeDefined();
+
+      await fs.unlink(outFile);
+    });
+  });
 });

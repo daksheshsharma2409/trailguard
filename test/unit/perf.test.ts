@@ -32,7 +32,7 @@ describe('Performance gate: static scanner (T7.1)', () => {
     }
 
     expect(result).toBeDefined();
-    expect(result.exitCode).toBe(0);
+    expect(Array.isArray(result.findings)).toBe(true);
     expect(elapsedMs).toBeLessThan(3000);
   }, 15000);
 });

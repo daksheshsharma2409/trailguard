@@ -243,7 +243,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T5.2 [MVP] `trailguard ci`**
   - dep: T2.14, T5.1 · Accept: runs scan → verify → (drift if available), prints one summary table, exit = max(sub-exit codes); `--no-db` skips verify/drift with a visible warning; `--format` and `--out` apply to scan part.
 
-- [ ] **T5.3 [T2] `trailguard drift` + `trailguard export` + `trailguard checkpoint` commands**
+- [x] **T5.3 [T2] `trailguard drift` + `trailguard export` + `trailguard checkpoint` commands**
   - dep: T4.5, T3.11, T3.7 · Accept: each works end to end with exit codes per spec.
 
 - [ ] **T5.4 [T2] `trailguard init`**
