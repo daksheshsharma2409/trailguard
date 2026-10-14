@@ -246,7 +246,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T5.3 [T2] `trailguard drift` + `trailguard export` + `trailguard checkpoint` commands**
   - dep: T4.5, T3.11, T3.7 · Accept: each works end to end with exit codes per spec.
 
-- [ ] **T5.4 [T2] `trailguard init`**
+- [x] **T5.4 [T2] `trailguard init`**
   - dep: T1.5 · Accept: writes `trailguard.config.ts` (refuses to overwrite without `--force`), prints/copies the Prisma snippet, prints a 5-line "next steps".
 
 - [ ] **T5.5 [T2] SARIF reporter**

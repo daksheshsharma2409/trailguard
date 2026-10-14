@@ -16,6 +16,7 @@ import { runDriftCommand, type DriftCommandOptions } from './cli/drift-command.j
 import { runCiCommand, type CiCommandOptions } from './cli/ci-command.js';
 import { runExportCommand, type ExportCommandOptions } from './cli/export-command.js';
 import { runCheckpointCommand, type CheckpointCommandOptions } from './cli/checkpoint-command.js';
+import { runInitCommand, type InitCommandOptions } from './cli/init-command.js';
 import type { Risk } from './core/types.js';
 
 // Resolve package.json for the version string
@@ -244,10 +245,23 @@ program
   .command('init')
   .description('Write trailguard.config.ts and print the Prisma snippet')
   .option('--force', 'Overwrite existing config file')
-  .action((_opts: unknown) => {
-    // Implemented in T5.4
-    console.error('trailguard init: not yet implemented');
-    process.exit(2);
+  .action(async (opts: InitCommandOptions) => {
+    try {
+      const outcome = await runInitCommand(opts);
+      if (outcome.exitCode === 0) {
+        console.log(outcome.message);
+      } else {
+        console.error(outcome.message);
+      }
+      process.exit(outcome.exitCode);
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(`trailguard init error: ${err.message}`);
+      } else {
+        console.error('trailguard init error:', String(err));
+      }
+      process.exit(2);
+    }
   });
 
 program.parse(process.argv);
