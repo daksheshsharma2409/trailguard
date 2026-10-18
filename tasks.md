@@ -300,8 +300,8 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 ---
 
 ## Definition of done (whole project)
-- [ ] All **[MVP]** tasks ticked; `npm run lint && npm run typecheck && npm test && npm run test:int` green.
-- [ ] `trailguard ci` on the fixed demo app → exit 0; after `demo:break` → exit 1 with exactly 3 HIGH findings.
-- [ ] Tamper, rehash, and truncation demos all detected.
-- [ ] README, THREAT_MODEL, DEMO docs complete and consistent with behavior.
-- [ ] `npm publish --dry-run` clean.
+- [x] All **[MVP]** tasks ticked; `npm run lint && npm run typecheck && npm test && npm run test:int` green.
+- [x] `trailguard ci` on the fixed demo app → exit 0; after `demo:break` → exit 1 with exactly 3 HIGH findings.
+- [x] Tamper, rehash, and truncation demos all detected.
+- [x] README, THREAT_MODEL, DEMO docs complete and consistent with behavior.
+- [x] `npm publish --dry-run` clean.
