@@ -244,7 +244,7 @@ export function findPrismaWrites(
               }
             }
 
-            if (RAW_SQL_WRITE_REGEX.test(sqlText)) {
+            if (RAW_SQL_WRITE_REGEX.test(sqlText) && !/^\s*select\b/i.test(sqlText.trim())) {
               const line = callExpr.getStartLineNumber();
               const enclosingFunction = findEnclosingFunctionName(callExpr);
               const routeNode = findMatchingRouteNode(callExpr, routes, filePath, enclosingFunction);
@@ -273,7 +273,7 @@ export function findPrismaWrites(
         if (RAW_SQL_METHODS.has(methodName)) {
           const template = tt.getTemplate();
           const sqlText = template.getText();
-          if (RAW_SQL_WRITE_REGEX.test(sqlText)) {
+          if (RAW_SQL_WRITE_REGEX.test(sqlText) && !/^\s*select\b/i.test(sqlText.trim())) {
             const receiverText = tag.getExpression().getText().trim();
             const line = tt.getStartLineNumber();
             const enclosingFunction = findEnclosingFunctionName(tt);

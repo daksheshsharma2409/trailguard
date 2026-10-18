@@ -52,6 +52,9 @@ export const aud003: Rule = {
       const matchedModel = ctx.config.audit.models.find((m) =>
         new RegExp(`\\b${m}\\b`, 'i').test(write.sql),
       );
+      if (!matchedModel) {
+        continue;
+      }
 
       findings.push({
         ruleId: aud003.id,

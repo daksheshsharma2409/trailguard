@@ -272,7 +272,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T6.4 [MVP] End-to-end demo test + `docs/DEMO.md`**
   - dep: T6.2, T6.3 · Accept: a vitest e2e (skipped without DB) executes the seven-step demo from `context.md`/README programmatically (break → scan fails → fix → scan passes → write → verify ok → tamper → verify fails → rehash → fails → truncate → checkpoint catches → drift catches); `docs/DEMO.md` has the human script with exact commands and expected output snippets.
 
-- [ ] **T6.5 [T2] Drift demo step**
+- [x] **T6.5 [T2] Drift demo step**
   - dep: T4.5, T6.4 · Accept: seed an entry where a TEACHER deletes a User (via script) → `trailguard drift` reports `DRIFT001`; documented in `DEMO.md`.
 
 ---

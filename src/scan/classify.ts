@@ -27,6 +27,7 @@ export const KNOWN_NEUTRAL_MIDDLEWARE = [
   'compression',
   'cookieParser',
   'cookie-parser',
+  'auditContext',
 ] as const;
 
 /**

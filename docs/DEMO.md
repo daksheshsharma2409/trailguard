@@ -327,6 +327,52 @@ The truncation attack is proven and exposed.
 
 ---
 
+## Step 8: Runtime Drift Detection (`trailguard drift`)
+
+Static analysis alone proves what routes *declare*. But what if an insider or compromised background service bypasses the HTTP layer (e.g., through an administrative script, direct DB transaction, or privilege escalation) and performs an action contrary to the declared access matrix?
+
+Reset the database cleanly:
+
+```bash
+npm run demo:setup
+```
+
+Simulate an unauthorized runtime action where a `TEACHER` deletes a `User` record:
+
+```bash
+npx tsx scripts/attacker/seed-drift.ts
+```
+
+Output:
+```text
+Seeded drift entry: TEACHER deleted User (seq appended to audit log).
+```
+
+Even though the audit log entry is cryptographically authentic and properly chained, `trailguard drift` reconciles runtime audit behavior against the statically declared access matrix:
+
+```bash
+node bin/trailguard.js drift --config examples/demo-app/trailguard.config.ts
+```
+
+### Expected Output
+The command exits with code **1** and highlights the unauthorized permission drift:
+
+```text
+TRAILGUARD DRIFT REPORT
+----------------------------------------------------------------------------------------------------
+Rule      Risk  Role     Resource  Action  Message
+----------------------------------------------------------------------------------------------------
+DRIFT001  high  TEACHER  User      DELETE  Role TEACHER performed DELETE on User (unauthorized by static matrix)
+----------------------------------------------------------------------------------------------------
+Total audited rows evaluated: 5
+Discovered drift violations: 1
+Exit code: 1
+```
+
+The runtime drift is exposed and flagged.
+
+---
+
 ## Summary: Defense-in-Depth
 
 | Threat | Prevented / Detected By | Mechanism |
@@ -337,3 +383,4 @@ The truncation attack is proven and exposed.
 | Direct row payload alteration | Runtime Verifier (`trailguard verify`) | HMAC-SHA256 signature verification |
 | Rewriting hash chain forward | Runtime Verifier (`trailguard verify`) | Attacker lacks application HMAC key |
 | Deleting trailing audit rows | Checkpoint Verifier (`--checkpoints`) | Monotonically increasing external checkpoint state |
+| Runtime privilege drift / unauthorized action | Drift Engine (`trailguard drift`) | Reconciles runtime audit logs against static access matrix |

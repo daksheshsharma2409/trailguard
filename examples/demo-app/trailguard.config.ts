@@ -4,6 +4,7 @@ export default defineConfig({
   entry: ['./src/app.ts'],
   tsconfig: './tsconfig.json',
   prismaSchema: './prisma/schema.prisma',
+  ignore: ['**/*.test.ts', '**/node_modules/**', '**/src/runtime/**', '**/src/index.ts'],
   auth: {
     middleware: ['authenticate'],
   },

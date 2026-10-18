@@ -26,6 +26,8 @@ import { scan } from '../../src/scan/index.js';
 import { runVerifyCommand } from '../../src/cli/verify-command.js';
 import { rehashChain } from '../../scripts/attacker/rehash-chain.js';
 import { truncateTail } from '../../scripts/attacker/truncate-tail.js';
+import { seedDrift } from '../../scripts/attacker/seed-drift.js';
+import { runDriftCommand } from '../../src/cli/drift-command.js';
 import { createCheckpoint, fileSink } from '../../src/runtime/checkpoint.js';
 import { resetHeadCache } from '../../src/runtime/append.js';
 
@@ -243,5 +245,36 @@ describe('Integration: End-to-End Demo (T6.4)', () => {
 
     expect(checkpointOutcome.exitCode).toBe(1);
     expect(checkpointOutcome.message).toContain('TRUNCATION_DETECTED');
+  });
+
+  it('Step 8: detects runtime access drift (DRIFT001) when TEACHER deletes User (T6.5)', async () => {
+    // Reset cleanly
+    resetHeadCache();
+    await seed();
+
+    // Verify initial clean state has 0 drift
+    const initialDrift = await runDriftCommand({
+      config: demoConfigPath,
+      prisma: prisma as unknown as import('../../src/scan/drift.js').DriftPrismaClient,
+    });
+    expect(initialDrift.exitCode).toBe(0);
+
+    // Seed drift: TEACHER performs DELETE on User (unauthorized by static matrix)
+    await seedDrift({
+      prisma: prisma as unknown as import('@prisma/client').PrismaClient,
+      key: masterKey,
+    });
+
+    // Run trailguard drift
+    const driftOutcome = await runDriftCommand({
+      config: demoConfigPath,
+      prisma: prisma as unknown as import('../../src/scan/drift.js').DriftPrismaClient,
+    });
+
+    expect(driftOutcome.exitCode).toBe(1);
+    expect(driftOutcome.message).toContain('DRIFT001');
+    expect(driftOutcome.message).toContain('TEACHER');
+    expect(driftOutcome.message).toContain('User');
+    expect(driftOutcome.message.toLowerCase()).toContain('delete');
   });
 });
