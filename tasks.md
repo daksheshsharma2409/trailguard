@@ -229,7 +229,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - Do: `context.md §8`; `--since`; uses same `Finding` + baseline.
   - Accept: seeded audit rows where a `TEACHER` deleted a `User` while matrix says ADMIN-only → one `DRIFT001` with sample seqs; allowed activity → none; role `SYSTEM` → no `DRIFT002` by default; exit code 1 on violations.
 
-- [ ] **T4.6 [T3] `DRIFT003` ownership drift** · dep: T4.5 · Accept: owner-field mismatch on an `own`-flagged cell raises `DRIFT003`.
+- [x] **T4.6 [T3] `DRIFT003` ownership drift** · dep: T4.5 · Accept: owner-field mismatch on an `own`-flagged cell raises `DRIFT003`.
 
 ---
 

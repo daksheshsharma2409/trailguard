@@ -37,7 +37,7 @@ export interface DriftResult {
 }
 
 export function computeDriftFingerprint(
-  ruleId: 'DRIFT001' | 'DRIFT002',
+  ruleId: 'DRIFT001' | 'DRIFT002' | 'DRIFT003',
   role: string,
   model: string,
   action: string,
@@ -53,11 +53,26 @@ interface AuditRowSample {
   requestId: string | null;
 }
 
+interface OwnershipMismatchSample {
+  seq: bigint | number | string;
+  actorId: string | null;
+  ownerValue: string;
+}
+
 interface DistinctGroup {
   actorRole: string | null;
   model: string;
   action: string;
   samples: AuditRowSample[];
+  ownershipMismatchSamples: OwnershipMismatchSample[];
+}
+
+function toSafeString(val: unknown): string {
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'bigint' || typeof val === 'boolean') {
+    return String(val);
+  }
+  return JSON.stringify(val);
 }
 
 /**
@@ -107,6 +122,7 @@ export async function detectDrift(options: DriftOptions): Promise<DriftResult> {
         model,
         action,
         samples: [],
+        ownershipMismatchSamples: [],
       };
       groups.set(key, group);
     }
@@ -118,6 +134,49 @@ export async function detectDrift(options: DriftOptions): Promise<DriftResult> {
         actorRole,
         requestId: (row['requestId'] as string | null | undefined) ?? null,
       });
+    }
+
+    // Check ownership mismatch for DRIFT003
+    const parseRecord = (val: unknown): Record<string, unknown> | null => {
+      if (!val) return null;
+      if (typeof val === 'object' && !Array.isArray(val)) return val as Record<string, unknown>;
+      if (typeof val === 'string') {
+        try {
+          const parsed: unknown = JSON.parse(val);
+          return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+            ? (parsed as Record<string, unknown>)
+            : null;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+
+    const beforeObj = parseRecord(row['before']);
+    const afterObj = parseRecord(row['after']);
+
+    const ownerField = config.ownership.ownerFields.find(
+      (f) => (beforeObj && f in beforeObj) || (afterObj && f in afterObj),
+    );
+    if (ownerField) {
+      const rawOwnerVal = beforeObj?.[ownerField] ?? afterObj?.[ownerField];
+      if (rawOwnerVal !== undefined && rawOwnerVal !== null) {
+        const ownerValue = toSafeString(rawOwnerVal);
+        const actorId =
+          row['actorId'] !== undefined && row['actorId'] !== null
+            ? toSafeString(row['actorId'])
+            : null;
+        if (!actorId || actorId !== ownerValue) {
+          if (group.ownershipMismatchSamples.length < 3) {
+            group.ownershipMismatchSamples.push({
+              seq: (row['seq'] as bigint | number | string | undefined) ?? '',
+              actorId,
+              ownerValue,
+            });
+          }
+        }
+      }
     }
   }
 
@@ -197,6 +256,29 @@ export async function detectDrift(options: DriftOptions): Promise<DriftResult> {
     // If role is SYSTEM or in allowRoles, it's allowed by drift config
     if (isAllowedSpecialRole) {
       continue;
+    }
+
+    // 3. Check ownership drift (DRIFT003)
+    if (cell.own && group.ownershipMismatchSamples.length > 0) {
+      const firstMismatch = group.ownershipMismatchSamples[0];
+      if (firstMismatch) {
+        const mismatchSeqs = group.ownershipMismatchSamples.map((s) => s.seq.toString());
+        const firstMismatchSeq = Number(firstMismatch.seq || 1);
+
+        findings.push({
+          ruleId: 'DRIFT003',
+          risk: 'medium',
+          confidence: 'high',
+          message: `Observed action '${action}' on '${model}' where actorId '${firstMismatch.actorId ?? 'null'}' does not match record owner '${firstMismatch.ownerValue}' (seqs: ${mismatchSeqs.join(', ')}), but static access matrix requires ownership ('own').`,
+          file: 'audit',
+          line: firstMismatchSeq,
+          resource: {
+            model,
+            source: 'config',
+          },
+          fingerprint: computeDriftFingerprint('DRIFT003', roleName, model, action),
+        });
+      }
     }
 
     // If cell allows anonymous:

@@ -298,6 +298,180 @@ describe('Unit: Drift Detection Engine (scan/drift.ts)', () => {
     expect(result.exitCode).toBe(0); // suppressed findings don't trigger failure
   });
 
+  it('detects DRIFT003 when an actor mutates a record they do not own on an own-flagged matrix cell', async () => {
+    const ownMatrix: MatrixCell[] = [
+      {
+        resource: 'Student',
+        action: 'update',
+        anonymous: false,
+        anyAuthenticated: false,
+        roles: ['STUDENT'],
+        own: true,
+        uncertain: false,
+      },
+    ];
+
+    const mockPrisma: DriftPrismaClient = {
+      auditLog: {
+        findMany: async () => [
+          {
+            seq: 201n,
+            actorRole: 'STUDENT',
+            actorId: 'student-attacker',
+            model: 'Student',
+            action: 'UPDATE',
+            requestId: 'req-bad',
+            before: JSON.stringify({ id: 's1', userId: 'student-victim', marks: 50 }),
+            after: JSON.stringify({ id: 's1', userId: 'student-victim', marks: 100 }),
+            createdAt: new Date(),
+          },
+        ],
+      },
+    };
+
+    const result = await detectDrift({
+      prisma: mockPrisma,
+      config: baseConfig,
+      matrix: ownMatrix,
+      failOn: 'medium',
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.findings).toHaveLength(1);
+    const finding = result.findings[0]!;
+    expect(finding.ruleId).toBe('DRIFT003');
+    expect(finding.risk).toBe('medium');
+    expect(finding.confidence).toBe('high');
+    expect(finding.message).toContain("where actorId 'student-attacker' does not match record owner 'student-victim'");
+    expect(finding.message).toContain("requires ownership ('own')");
+    expect(finding.fingerprint).toBe(computeDriftFingerprint('DRIFT003', 'STUDENT', 'Student', 'update'));
+  });
+
+  it('does not flag DRIFT003 when actorId matches the record owner field', async () => {
+    const ownMatrix: MatrixCell[] = [
+      {
+        resource: 'Student',
+        action: 'update',
+        anonymous: false,
+        anyAuthenticated: false,
+        roles: ['STUDENT'],
+        own: true,
+        uncertain: false,
+      },
+    ];
+
+    const mockPrisma: DriftPrismaClient = {
+      auditLog: {
+        findMany: async () => [
+          {
+            seq: 202n,
+            actorRole: 'STUDENT',
+            actorId: 'student-owner',
+            model: 'Student',
+            action: 'UPDATE',
+            requestId: 'req-good',
+            before: { id: 's1', userId: 'student-owner', marks: 50 },
+            after: { id: 's1', userId: 'student-owner', marks: 60 },
+            createdAt: new Date(),
+          },
+        ],
+      },
+    };
+
+    const result = await detectDrift({
+      prisma: mockPrisma,
+      config: baseConfig,
+      matrix: ownMatrix,
+      failOn: 'medium',
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it('does not flag DRIFT003 when privileged role in allowRoles updates the record', async () => {
+    const ownMatrix: MatrixCell[] = [
+      {
+        resource: 'Student',
+        action: 'update',
+        anonymous: false,
+        anyAuthenticated: false,
+        roles: ['STUDENT'],
+        own: true,
+        uncertain: false,
+      },
+    ];
+
+    const mockPrisma: DriftPrismaClient = {
+      auditLog: {
+        findMany: async () => [
+          {
+            seq: 203n,
+            actorRole: 'SYSTEM',
+            actorId: 'system-service',
+            model: 'Student',
+            action: 'UPDATE',
+            requestId: 'req-sys',
+            before: { id: 's1', userId: 'student-victim', marks: 50 },
+            after: { id: 's1', userId: 'student-victim', marks: 60 },
+            createdAt: new Date(),
+          },
+        ],
+      },
+    };
+
+    const result = await detectDrift({
+      prisma: mockPrisma,
+      config: baseConfig,
+      matrix: ownMatrix,
+      failOn: 'medium',
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it('does not flag DRIFT003 when matrix cell own is false', async () => {
+    const nonOwnMatrix: MatrixCell[] = [
+      {
+        resource: 'Student',
+        action: 'update',
+        anonymous: false,
+        anyAuthenticated: false,
+        roles: ['STUDENT'],
+        own: false,
+        uncertain: false,
+      },
+    ];
+
+    const mockPrisma: DriftPrismaClient = {
+      auditLog: {
+        findMany: async () => [
+          {
+            seq: 204n,
+            actorRole: 'STUDENT',
+            actorId: 'someone-else',
+            model: 'Student',
+            action: 'UPDATE',
+            requestId: 'req-other',
+            before: { id: 's1', userId: 'student-victim', marks: 50 },
+            createdAt: new Date(),
+          },
+        ],
+      },
+    };
+
+    const result = await detectDrift({
+      prisma: mockPrisma,
+      config: baseConfig,
+      matrix: nonOwnMatrix,
+      failOn: 'medium',
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+  });
+
   it('formats terminal drift report for clean and violation states', () => {
     const cleanReport = formatDriftReport({
       findings: [],
