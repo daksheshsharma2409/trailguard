@@ -99,6 +99,7 @@ interface ModelDelegate {
   delete: (args: Record<string, unknown>) => Promise<Record<string, unknown>>;
   upsert: (args: Record<string, unknown>) => Promise<Record<string, unknown>>;
   findUnique: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
+  findFirst?: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
   createMany?: (args: Record<string, unknown>) => Promise<{ count: number }>;
   updateMany: (args: Record<string, unknown>) => Promise<{ count: number }>;
   deleteMany: (args: Record<string, unknown>) => Promise<{ count: number }>;
@@ -567,6 +568,98 @@ async function executeDeleteManyOp(
   return { result: deleteRes, entries };
 }
 
+async function executeFindSingleOp(
+  txDelegate: ModelDelegate,
+  model: string,
+  args: Record<string, unknown> | undefined,
+  options: AuditOptions,
+  currentKey: string,
+  op: 'findUnique' | 'findFirst' = 'findUnique',
+): Promise<{ result: unknown; entry: AppendEntryInput | null }> {
+  const safeArgs = args ?? {};
+  const queryFn =
+    op === 'findFirst' && typeof txDelegate.findFirst === 'function'
+      ? txDelegate.findFirst.bind(txDelegate)
+      : txDelegate.findUnique.bind(txDelegate);
+
+  const rawRow = (await queryFn(safeArgs)) as Record<string, unknown> | null;
+  if (!rawRow) {
+    return { result: null, entry: null };
+  }
+
+  const context = getAuditContext(options.onMissingContext ?? 'throw');
+  const where = safeArgs['where'] as Record<string, unknown> | undefined;
+  const recordId = extractRecordId(model, rawRow, where, options.idFields);
+
+  const redactedAfter = redactRecord(rawRow, {
+    model,
+    key: currentKey,
+    redactFields: options.redactFields,
+    redact: options.redact,
+    ignoreFields: options.ignoreFields,
+  });
+
+  const entry: AppendEntryInput = {
+    model,
+    recordId,
+    action: 'READ' as AuditAction,
+    actorId: context.actorId ?? null,
+    actorRole: context.actorRole ?? null,
+    requestId: context.requestId ?? null,
+    ipAddress: context.ipAddress ?? null,
+    userAgent: context.userAgent ?? null,
+    before: null,
+    after: redactedAfter,
+    diff: null,
+  };
+
+  return { result: rawRow, entry };
+}
+
+async function executeFindManyOp(
+  txDelegate: ModelDelegate,
+  model: string,
+  args: Record<string, unknown> | undefined,
+  options: AuditOptions,
+  currentKey: string,
+): Promise<{ result: unknown; entries: AppendEntryInput[] }> {
+  const safeArgs = args ?? {};
+  const rows = (await txDelegate.findMany(safeArgs)) as Array<Record<string, unknown>>;
+  if (rows.length === 0) {
+    return { result: rows, entries: [] };
+  }
+
+  const context = getAuditContext(options.onMissingContext ?? 'throw');
+  const entries: AppendEntryInput[] = [];
+
+  for (const row of rows) {
+    const recordId = extractRecordId(model, row, undefined, options.idFields);
+    const redactedAfter = redactRecord(row, {
+      model,
+      key: currentKey,
+      redactFields: options.redactFields,
+      redact: options.redact,
+      ignoreFields: options.ignoreFields,
+    });
+
+    entries.push({
+      model,
+      recordId,
+      action: 'READ' as AuditAction,
+      actorId: context.actorId ?? null,
+      actorRole: context.actorRole ?? null,
+      requestId: context.requestId ?? null,
+      ipAddress: context.ipAddress ?? null,
+      userAgent: context.userAgent ?? null,
+      before: null,
+      after: redactedAfter,
+      diff: null,
+    });
+  }
+
+  return { result: rows, entries };
+}
+
 export interface AuditedClientExtension {
   $auditedTransaction<T>(
     fn: (tx: Record<string, unknown>) => Promise<T>,
@@ -605,9 +698,16 @@ export function createAuditClient<
 
   const { currentKeyId, currentKey } = resolveKeys(options);
   const auditedModelSet = new Set(options.models.map((m) => m.toLowerCase()));
+  const readAuditedModelSet = new Set(
+    (options.readAuditModels ?? []).map((m) => m.toLowerCase()),
+  );
 
   function isAudited(model: string): boolean {
     return auditedModelSet.has(model.toLowerCase());
+  }
+
+  function isReadAudited(model: string): boolean {
+    return readAuditedModelSet.has(model.toLowerCase());
   }
 
   return prisma.$extends({
@@ -639,7 +739,7 @@ export function createAuditClient<
                 }
 
                 const propLower = prop.toLowerCase();
-                if (!auditedModelSet.has(propLower)) {
+                if (!auditedModelSet.has(propLower) && !readAuditedModelSet.has(propLower)) {
                   const rawProp = Reflect.get(target, prop, receiver) as unknown;
                   return typeof rawProp === 'function'
                     ? (rawProp as (...args: unknown[]) => unknown).bind(target)
@@ -647,7 +747,9 @@ export function createAuditClient<
                 }
 
                 const modelName =
-                  options.models.find((m) => m.toLowerCase() === propLower) ?? prop;
+                  options.models.find((m) => m.toLowerCase() === propLower) ??
+                  options.readAuditModels?.find((m) => m.toLowerCase() === propLower) ??
+                  prop;
                 const delegate =
                   (target[prop] as ModelDelegate | undefined) ??
                   (target[toDelegateName(prop)] as ModelDelegate | undefined) ??
@@ -759,6 +861,68 @@ export function createAuditClient<
                         stagedEntries.push(...entries);
                         return result;
                       };
+                    }
+
+                    if (method === 'findUnique') {
+                      if (isReadAudited(modelName)) {
+                        return async (args?: Record<string, unknown>) => {
+                          const { result, entry } = await executeFindSingleOp(
+                            delTarget,
+                            modelName,
+                            args,
+                            options,
+                            currentKey,
+                            'findUnique',
+                          );
+                          if (entry) stagedEntries.push(entry);
+                          return result;
+                        };
+                      }
+                      const rawMethod = Reflect.get(delTarget, method, delReceiver) as unknown;
+                      return typeof rawMethod === 'function'
+                        ? (rawMethod as (...args: unknown[]) => unknown).bind(delTarget)
+                        : rawMethod;
+                    }
+
+                    if (method === 'findFirst') {
+                      if (isReadAudited(modelName)) {
+                        return async (args?: Record<string, unknown>) => {
+                          const { result, entry } = await executeFindSingleOp(
+                            delTarget,
+                            modelName,
+                            args,
+                            options,
+                            currentKey,
+                            'findFirst',
+                          );
+                          if (entry) stagedEntries.push(entry);
+                          return result;
+                        };
+                      }
+                      const rawMethod = Reflect.get(delTarget, method, delReceiver) as unknown;
+                      return typeof rawMethod === 'function'
+                        ? (rawMethod as (...args: unknown[]) => unknown).bind(delTarget)
+                        : rawMethod;
+                    }
+
+                    if (method === 'findMany') {
+                      if (isReadAudited(modelName)) {
+                        return async (args?: Record<string, unknown>) => {
+                          const { result, entries } = await executeFindManyOp(
+                            delTarget,
+                            modelName,
+                            args,
+                            options,
+                            currentKey,
+                          );
+                          stagedEntries.push(...entries);
+                          return result;
+                        };
+                      }
+                      const rawMethod = Reflect.get(delTarget, method, delReceiver) as unknown;
+                      return typeof rawMethod === 'function'
+                        ? (rawMethod as (...args: unknown[]) => unknown).bind(delTarget)
+                        : rawMethod;
                     }
 
                     const rawMethod = Reflect.get(delTarget, method, delReceiver) as unknown;
@@ -1250,6 +1414,215 @@ export function createAuditClient<
               }
 
               const { result, entries } = await executeDeleteManyOp(
+                txDelegate,
+                model,
+                args,
+                options,
+                currentKey,
+              );
+
+              let appended: AppendedRecord[] = [];
+              if (entries.length > 0) {
+                appended = await appendAuditEntries(
+                  tx as unknown as AuditPrismaTx,
+                  entries,
+                  {
+                    key: currentKey,
+                    keyId: currentKeyId,
+                    testHooks: options.testHooks,
+                  },
+                );
+              }
+
+              return { result, appended };
+            },
+            {
+              maxWait: options.tx?.maxWait ?? 5000,
+              timeout: options.tx?.timeout ?? 10000,
+            },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
+          );
+
+          return txRes.result;
+        },
+
+        async findUnique(
+          this: unknown,
+          {
+            model,
+            args,
+            query,
+          }: {
+            model: string;
+            args: Record<string, unknown>;
+            query: (args: Record<string, unknown>) => Promise<unknown>;
+          },
+        ) {
+          if (!isReadAudited(model)) {
+            return query(args);
+          }
+
+          const delegate = toDelegateName(model);
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
+
+          const txRes = (await prisma.$transaction(
+            async (tx: unknown) => {
+              const txObj = tx as Record<string, ModelDelegate | undefined>;
+              const txDelegate = txObj[delegate];
+              if (!txDelegate) {
+                return { result: await query(args), appended: [] };
+              }
+
+              const { result, entry } = await executeFindSingleOp(
+                txDelegate,
+                model,
+                args,
+                options,
+                currentKey,
+                'findUnique',
+              );
+
+              let appended: AppendedRecord[] = [];
+              if (entry) {
+                appended = await appendAuditEntries(
+                  tx as unknown as AuditPrismaTx,
+                  [entry],
+                  {
+                    key: currentKey,
+                    keyId: currentKeyId,
+                    testHooks: options.testHooks,
+                  },
+                );
+              }
+
+              return { result, appended };
+            },
+            {
+              maxWait: options.tx?.maxWait ?? 5000,
+              timeout: options.tx?.timeout ?? 10000,
+            },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
+          );
+
+          return txRes.result;
+        },
+
+        async findFirst(
+          this: unknown,
+          {
+            model,
+            args,
+            query,
+          }: {
+            model: string;
+            args: Record<string, unknown>;
+            query: (args: Record<string, unknown>) => Promise<unknown>;
+          },
+        ) {
+          if (!isReadAudited(model)) {
+            return query(args);
+          }
+
+          const delegate = toDelegateName(model);
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
+
+          const txRes = (await prisma.$transaction(
+            async (tx: unknown) => {
+              const txObj = tx as Record<string, ModelDelegate | undefined>;
+              const txDelegate = txObj[delegate];
+              if (!txDelegate) {
+                return { result: await query(args), appended: [] };
+              }
+
+              const { result, entry } = await executeFindSingleOp(
+                txDelegate,
+                model,
+                args,
+                options,
+                currentKey,
+                'findFirst',
+              );
+
+              let appended: AppendedRecord[] = [];
+              if (entry) {
+                appended = await appendAuditEntries(
+                  tx as unknown as AuditPrismaTx,
+                  [entry],
+                  {
+                    key: currentKey,
+                    keyId: currentKeyId,
+                    testHooks: options.testHooks,
+                  },
+                );
+              }
+
+              return { result, appended };
+            },
+            {
+              maxWait: options.tx?.maxWait ?? 5000,
+              timeout: options.tx?.timeout ?? 10000,
+            },
+          )) as { result: unknown; appended: AppendedRecord[] };
+
+          await emitCheckpointsIfDue(
+            txRes.appended,
+            options.checkpoint,
+            currentKey,
+            currentKeyId,
+            options.onError,
+          );
+
+          return txRes.result;
+        },
+
+        async findMany(
+          this: unknown,
+          {
+            model,
+            args,
+            query,
+          }: {
+            model: string;
+            args: Record<string, unknown>;
+            query: (args: Record<string, unknown>) => Promise<unknown>;
+          },
+        ) {
+          if (!isReadAudited(model)) {
+            return query(args);
+          }
+
+          const delegate = toDelegateName(model);
+          if (!isHeadInitialized()) {
+            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+          }
+
+          const txRes = (await prisma.$transaction(
+            async (tx: unknown) => {
+              const txObj = tx as Record<string, ModelDelegate | undefined>;
+              const txDelegate = txObj[delegate];
+              if (!txDelegate) {
+                return { result: await query(args), appended: [] };
+              }
+
+              const { result, entries } = await executeFindManyOp(
                 txDelegate,
                 model,
                 args,

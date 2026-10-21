@@ -32,8 +32,8 @@ export function createDiff(
   after: Record<string, unknown> | null | undefined,
   action?: AuditAction,
 ): RecordDiff | null {
-  // Explicit CREATE or DELETE always has null diff per context.md §7.7
-  if (action === 'CREATE' || action === 'DELETE') {
+  // Explicit CREATE, DELETE, or READ always has null diff
+  if (action === 'CREATE' || action === 'DELETE' || action === 'READ') {
     return null;
   }
 

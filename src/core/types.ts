@@ -12,7 +12,7 @@ export type Risk = 'high' | 'medium' | 'low';
 export type Confidence = 'high' | 'medium' | 'low';
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS' | 'ALL';
 export type Action = 'read' | 'create' | 'update' | 'delete';
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'READ';
 
 // ── Middleware classification ────────────────────────────────────────────────
 
@@ -170,6 +170,14 @@ export type CheckpointSink = (checkpoint: Checkpoint) => void | Promise<void>;
 export interface AuditOptions {
   /** Prisma model names to audit (required, non-empty). */
   models: string[];
+  /**
+   * Models configured for read-access auditing (T3.15).
+   * Calls to findUnique and findMany on these models will append 'READ' entries.
+   *
+   * @remarks Warning: Read auditing can generate high volume in production.
+   * Use selectively on sensitive data models (e.g. PII, health, financial records).
+   */
+  readAuditModels?: string[];
   /** HMAC keys. Use { secret } shorthand → keyId 'default'. */
   keys: KeysOptions | KeysShorthand;
   /** Field names redacted globally. */

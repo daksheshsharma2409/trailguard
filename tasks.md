@@ -200,7 +200,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T3.14 [T3] `$auditedTransaction(fn)` on the audited client**
   - dep: T3.5 · Accept: ops inside `fn` share one transaction; all audit rows appended once at commit under a single head lock; rollback removes everything.
 
-- [ ] **T3.15 [T3] Read-access auditing for configured sensitive models**
+- [x] **T3.15 [T3] Read-access auditing for configured sensitive models**
   - dep: T3.5 · Accept: `findUnique/findMany` on listed models append `READ` entries (action union extended; docs warn about volume).
 
 ---

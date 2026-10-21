@@ -45,7 +45,7 @@ const logsQuerySchema = z.object({
   model: z.string().optional(),
   recordId: z.string().optional(),
   actorId: z.string().optional(),
-  action: z.enum(['CREATE', 'UPDATE', 'DELETE']).optional(),
+  action: z.enum(['CREATE', 'UPDATE', 'DELETE', 'READ']).optional(),
   from: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid ISO date string for "from"' })
