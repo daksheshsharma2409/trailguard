@@ -197,7 +197,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 - [x] **T3.13 [T2] Restore preview**
   - dep: T3.10 · Accept: `GET /restore-preview/:model/:recordId` returns last known state (uses `before` of the last DELETE); redacted fields remain redacted; 404 when never seen.
 
-- [ ] **T3.14 [T3] `$auditedTransaction(fn)` on the audited client**
+- [x] **T3.14 [T3] `$auditedTransaction(fn)` on the audited client**
   - dep: T3.5 · Accept: ops inside `fn` share one transaction; all audit rows appended once at commit under a single head lock; rollback removes everything.
 
 - [ ] **T3.15 [T3] Read-access auditing for configured sensitive models**

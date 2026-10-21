@@ -49,7 +49,7 @@ export type {
 } from './core/types.js';
 
 // Runtime API
-export { createAuditClient } from './runtime/client.js';
+export { createAuditClient, type AuditedClientExtension } from './runtime/client.js';
 export {
   auditContext,
   runWithAuditContext,
