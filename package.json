@@ -45,9 +45,10 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "prisma:generate": "prisma generate --schema test/integration/prisma/schema.prisma && prisma generate --schema examples/demo-app/prisma/schema.prisma",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:int": "vitest run --config vitest.integration.config.ts",
+    "test:int": "npm run prisma:generate && vitest run --config vitest.integration.config.ts",
     "lint": "eslint src test --ext .ts",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build",

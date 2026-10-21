@@ -153,8 +153,10 @@ describe('Integration: trailguard verify CLI command', () => {
       Array<{ hash: string }>
     >`SELECT hash FROM trailguard_audit_log WHERE seq = 3`;
     await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log WHERE seq > 3');
+    const row3Hash = row3[0]?.hash ?? '';
     await prisma.$executeRawUnsafe(
-      `UPDATE trailguard_audit_head SET lastSeq = 3, lastHash = '${row3[0]!.hash}' WHERE id = 1`,
+      'UPDATE trailguard_audit_head SET lastSeq = 3, lastHash = ? WHERE id = 1',
+      row3Hash,
     );
 
     // Without checkpoints, verify alone says valid (3 records)

@@ -53,6 +53,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/no-confusing-void-expression': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
     },
   },
   {
