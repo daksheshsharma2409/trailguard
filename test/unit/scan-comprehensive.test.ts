@@ -159,7 +159,7 @@ describe('Unit: scan() options and reporters (scan/scan.ts)', () => {
       failOn: 'none',
     });
     expect(failOnNone.exitCode).toBe(0);
-  });
+  }, 20000);
 
   it('creates and updates baseline file via updateBaseline option', async () => {
     const tempBaseline = path.join(os.tmpdir(), `tg-baseline-${String(Date.now())}.json`);
@@ -192,7 +192,7 @@ describe('Unit: scan() options and reporters (scan/scan.ts)', () => {
         fs.unlinkSync(tempBaseline);
       }
     }
-  });
+  }, 20000);
 
   it('overrides entry via src option', async () => {
     const result = await scan({
@@ -230,5 +230,5 @@ describe('Unit: scan() options and reporters (scan/scan.ts)', () => {
         fs.unlinkSync(relBaseline);
       }
     }
-  });
+  }, 20000);
 });

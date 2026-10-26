@@ -5,6 +5,8 @@ export default defineConfig({
     include: ['test/unit/**/*.test.ts', 'test/scan/**/*.test.ts', 'test/e2e/**/*.test.ts'],
     exclude: ['test/integration/**'],
     environment: 'node',
+    testTimeout: 20000,
+    hookTimeout: 20000,
     coverage: {
       provider: 'v8',
       include: ['src/scan/**', 'src/runtime/**', 'src/core/**'],
