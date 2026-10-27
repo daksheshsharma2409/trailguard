@@ -710,6 +710,62 @@ export function createAuditClient<
     return readAuditedModelSet.has(model.toLowerCase());
   }
 
+  async function runAuditedOp(
+    model: string,
+    args: Record<string, unknown>,
+    query: (args: Record<string, unknown>) => Promise<unknown>,
+    executeOp: (
+      txDelegate: ModelDelegate,
+    ) => Promise<{ result: unknown; entry?: AppendEntryInput | null; entries?: AppendEntryInput[] }>,
+  ): Promise<unknown> {
+    const delegate = toDelegateName(model);
+    if (!isHeadInitialized()) {
+      await ensureHeadRow(prisma as unknown as AuditPrismaTx);
+    }
+
+    const txRes = (await prisma.$transaction(
+      async (tx: unknown) => {
+        const txObj = tx as Record<string, ModelDelegate | undefined>;
+        const txDelegate = txObj[delegate];
+        if (!txDelegate) {
+          return { result: await query(args), appended: [] };
+        }
+
+        const opRes = await executeOp(txDelegate);
+        const toAppend = opRes.entries ?? (opRes.entry ? [opRes.entry] : []);
+
+        let appended: AppendedRecord[] = [];
+        if (toAppend.length > 0) {
+          appended = await appendAuditEntries(
+            tx as unknown as AuditPrismaTx,
+            toAppend,
+            {
+              key: currentKey,
+              keyId: currentKeyId,
+              testHooks: options.testHooks,
+            },
+          );
+        }
+
+        return { result: opRes.result, appended };
+      },
+      {
+        maxWait: options.tx?.maxWait ?? 5000,
+        timeout: options.tx?.timeout ?? 10000,
+      },
+    )) as { result: unknown; appended: AppendedRecord[] };
+
+    await emitCheckpointsIfDue(
+      txRes.appended,
+      options.checkpoint,
+      currentKey,
+      currentKeyId,
+      options.onError,
+    );
+
+    return txRes.result;
+  }
+
   return prisma.$extends({
     name: 'trailguard-audit',
     client: {
@@ -982,61 +1038,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entry } = await executeCreateOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entry) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  [entry],
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeCreateOp(d, model, args, options, currentKey));
         },
 
         async update(
@@ -1051,61 +1054,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entry } = await executeUpdateOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entry) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  [entry],
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeUpdateOp(d, model, args, options, currentKey));
         },
 
         async delete(
@@ -1120,61 +1070,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entry } = await executeDeleteOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entry) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  [entry],
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeDeleteOp(d, model, args, options, currentKey));
         },
 
         async upsert(
@@ -1189,61 +1086,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entry } = await executeUpsertOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entry) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  [entry],
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeUpsertOp(d, model, args, options, currentKey));
         },
 
         async createMany(
@@ -1258,61 +1102,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entries } = await executeCreateManyOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entries.length > 0) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  entries,
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeCreateManyOp(d, model, args, options, currentKey));
         },
 
         async updateMany(
@@ -1327,61 +1118,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entries } = await executeUpdateManyOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entries.length > 0) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  entries,
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeUpdateManyOp(d, model, args, options, currentKey));
         },
 
         async deleteMany(
@@ -1396,61 +1134,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entries } = await executeDeleteManyOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entries.length > 0) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  entries,
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeDeleteManyOp(d, model, args, options, currentKey));
         },
 
         async findUnique(
@@ -1465,62 +1150,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isReadAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entry } = await executeFindSingleOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-                'findUnique',
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entry) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  [entry],
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isReadAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeFindSingleOp(d, model, args, options, currentKey, 'findUnique'));
         },
 
         async findFirst(
@@ -1535,62 +1166,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isReadAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entry } = await executeFindSingleOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-                'findFirst',
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entry) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  [entry],
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isReadAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeFindSingleOp(d, model, args, options, currentKey, 'findFirst'));
         },
 
         async findMany(
@@ -1605,61 +1182,8 @@ export function createAuditClient<
             query: (args: Record<string, unknown>) => Promise<unknown>;
           },
         ) {
-          if (!isReadAudited(model)) {
-            return query(args);
-          }
-
-          const delegate = toDelegateName(model);
-          if (!isHeadInitialized()) {
-            await ensureHeadRow(prisma as unknown as AuditPrismaTx);
-          }
-
-          const txRes = (await prisma.$transaction(
-            async (tx: unknown) => {
-              const txObj = tx as Record<string, ModelDelegate | undefined>;
-              const txDelegate = txObj[delegate];
-              if (!txDelegate) {
-                return { result: await query(args), appended: [] };
-              }
-
-              const { result, entries } = await executeFindManyOp(
-                txDelegate,
-                model,
-                args,
-                options,
-                currentKey,
-              );
-
-              let appended: AppendedRecord[] = [];
-              if (entries.length > 0) {
-                appended = await appendAuditEntries(
-                  tx as unknown as AuditPrismaTx,
-                  entries,
-                  {
-                    key: currentKey,
-                    keyId: currentKeyId,
-                    testHooks: options.testHooks,
-                  },
-                );
-              }
-
-              return { result, appended };
-            },
-            {
-              maxWait: options.tx?.maxWait ?? 5000,
-              timeout: options.tx?.timeout ?? 10000,
-            },
-          )) as { result: unknown; appended: AppendedRecord[] };
-
-          await emitCheckpointsIfDue(
-            txRes.appended,
-            options.checkpoint,
-            currentKey,
-            currentKeyId,
-            options.onError,
-          );
-
-          return txRes.result;
+          if (!isReadAudited(model)) return query(args);
+          return runAuditedOp(model, args, query, (d) => executeFindManyOp(d, model, args, options, currentKey));
         },
       },
     },

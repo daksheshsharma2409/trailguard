@@ -517,7 +517,7 @@ Honest limitations (reproduced from `context.md §14`):
 - [x] Unified CI orchestrator (`trailguard ci`) and SARIF output
 - [x] Complete college demo application and attacker verification scripts
 - [x] Performance gates (< 3s scan) and ≥ 80% line test coverage
-- [ ] Packaging hygiene, tarball smoke testing, and npm publish dry-run
+- [x] Packaging hygiene, tarball smoke testing, and npm publish dry-run
 
 ---
 

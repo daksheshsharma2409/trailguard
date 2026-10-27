@@ -30,6 +30,8 @@ export interface CheckpointCommandOutcome {
   checkpoint?: Checkpoint | undefined;
 }
 
+import { loadDotenvIfPresent } from './env.js';
+
 export async function runCheckpointCommand(
   opts: CheckpointCommandOptions,
 ): Promise<CheckpointCommandOutcome> {
@@ -37,11 +39,13 @@ export async function runCheckpointCommand(
 
   // 1. Resolve configuration
   let config: Config | undefined;
+  let configDir = cwd;
   if (opts.config) {
     try {
       const configPath = path.isAbsolute(opts.config)
         ? opts.config
         : path.resolve(cwd, opts.config);
+      configDir = path.dirname(configPath);
       config = await loadConfig(configPath);
     } catch (err) {
       return {
@@ -56,6 +60,8 @@ export async function runCheckpointCommand(
       // Config is optional; defaults will apply
     }
   }
+
+  loadDotenvIfPresent([configDir, cwd]);
 
   // 2. Resolve HMAC key from environment variable
   const keyEnv = opts.keyEnv ?? config?.keyEnv ?? DEFAULT_KEY_ENV;

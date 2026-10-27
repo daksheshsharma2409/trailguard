@@ -50,6 +50,8 @@ export function loadCheckpointsFile(filePath: string): Checkpoint[] {
   return checkpoints;
 }
 
+import { loadDotenvIfPresent } from './env.js';
+
 export async function runVerifyCommand(
   opts: VerifyCommandOptions,
 ): Promise<VerifyCommandOutcome> {
@@ -57,9 +59,12 @@ export async function runVerifyCommand(
 
   // 1. Resolve configuration if provided or found
   let config: Config | undefined;
+  let configDir = cwd;
   if (opts.config) {
     try {
-      config = await loadConfig(path.isAbsolute(opts.config) ? opts.config : path.resolve(cwd, opts.config));
+      const configPath = path.isAbsolute(opts.config) ? opts.config : path.resolve(cwd, opts.config);
+      configDir = path.dirname(configPath);
+      config = await loadConfig(configPath);
     } catch (err) {
       return {
         exitCode: 2,
@@ -73,6 +78,8 @@ export async function runVerifyCommand(
       // Config is optional for verify; continue with defaults if not found
     }
   }
+
+  loadDotenvIfPresent([configDir, cwd]);
 
   // 2. Resolve HMAC key from environment variable
   const keyEnv = opts.keyEnv ?? config?.keyEnv ?? 'TRAILGUARD_KEY';

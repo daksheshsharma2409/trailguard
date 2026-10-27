@@ -7,13 +7,14 @@
  * @see context.md §8, tasks.md T4.5, T5.3
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { loadConfig } from '../config/load.js';
 import type { Config } from '../config/schema.js';
 import type { Risk } from '../core/types.js';
 import { createProject } from '../scan/project.js';
 import { composeMounts } from '../scan/mounts.js';
-import { loadPrismaSchema } from '../scan/prisma-schema.js';
+import { loadPrismaSchema, parsePrismaSchema } from '../scan/prisma-schema.js';
 import { buildRouteNodes, loadBaseline } from '../scan/findings.js';
 import { deriveMatrix } from '../scan/matrix.js';
 import {
@@ -24,6 +25,8 @@ import {
   type DriftResult,
 } from '../scan/drift.js';
 import { resolvePrismaClient } from './prisma-client.js';
+
+import { loadDotenvIfPresent } from './env.js';
 
 export interface DriftCommandOptions {
   config?: string | undefined;
@@ -47,11 +50,13 @@ export async function runDriftCommand(
 
   // 1. Resolve configuration
   let config: Config;
+  let configDir = cwd;
   try {
     if (opts.config) {
       const configPath = path.isAbsolute(opts.config)
         ? opts.config
         : path.resolve(cwd, opts.config);
+      configDir = path.dirname(configPath);
       config = await loadConfig(configPath);
     } else {
       config = await loadConfig();
@@ -63,13 +68,17 @@ export async function runDriftCommand(
     };
   }
 
+  loadDotenvIfPresent([configDir, cwd]);
+
   // 2. Resolve Prisma Client
   let prisma: DriftPrismaClient;
+  let shouldDisconnect = false;
   if (opts.prisma) {
     prisma = opts.prisma;
   } else {
     try {
       prisma = (await resolvePrismaClient(cwd)) as unknown as DriftPrismaClient;
+      shouldDisconnect = true;
     } catch (err) {
       return {
         exitCode: 2,
@@ -83,10 +92,22 @@ export async function runDriftCommand(
   try {
     const project = createProject(config);
     const { routes: composed } = composeMounts(project);
-    const schema = loadPrismaSchema(config.prismaSchema);
+    const schemaPath = path.isAbsolute(config.prismaSchema)
+      ? config.prismaSchema
+      : path.resolve(configDir, config.prismaSchema);
+    const schema = fs.existsSync(schemaPath)
+      ? loadPrismaSchema(schemaPath)
+      : parsePrismaSchema('');
     const routeNodes = buildRouteNodes(composed, config, schema);
     matrix = deriveMatrix(routeNodes, config.audit.models);
   } catch (err) {
+    if (shouldDisconnect && typeof (prisma as { $disconnect?: () => Promise<void> }).$disconnect === 'function') {
+      try {
+        await (prisma as { $disconnect?: () => Promise<void> }).$disconnect?.();
+      } catch {
+        // ignore
+      }
+    }
     return {
       exitCode: 2,
       message: `Error analyzing route structure: ${(err as Error).message}`,
@@ -103,6 +124,13 @@ export async function runDriftCommand(
         : path.resolve(cwd, baselinePath);
       baseline = loadBaseline(resolvedBaselinePath);
     } catch (err) {
+      if (shouldDisconnect && typeof (prisma as { $disconnect?: () => Promise<void> }).$disconnect === 'function') {
+        try {
+          await (prisma as { $disconnect?: () => Promise<void> }).$disconnect?.();
+        } catch {
+          // ignore
+        }
+      }
       return {
         exitCode: 2,
         message: `Error loading baseline file: ${(err as Error).message}`,
@@ -133,5 +161,13 @@ export async function runDriftCommand(
       exitCode: 2,
       message: `Drift detection error: ${(err as Error).message}`,
     };
+  } finally {
+    if (shouldDisconnect && typeof (prisma as { $disconnect?: () => Promise<void> }).$disconnect === 'function') {
+      try {
+        await (prisma as { $disconnect?: () => Promise<void> }).$disconnect?.();
+      } catch {
+        // ignore disconnect error
+      }
+    }
   }
 }
