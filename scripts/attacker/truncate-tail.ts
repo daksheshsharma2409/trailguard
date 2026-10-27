@@ -28,7 +28,7 @@ export async function truncateTail(options: TruncateTailOptions = {}): Promise<{
   const databaseUrl =
     process.env.DATABASE_URL ||
     process.env.TEST_DATABASE_URL ||
-    'mysql://root:root@localhost:3307/trailguard_test';
+    'postgresql://root:root@localhost:5432/trailguard_test?schema=public';
 
   const prisma =
     options.prisma ||
@@ -39,15 +39,14 @@ export async function truncateTail(options: TruncateTailOptions = {}): Promise<{
   const count = options.count ?? 1;
 
   try {
-    const headRows = await prisma.$queryRawUnsafe<Array<{ lastSeq: bigint; lastHash: string }>>(
-      'SELECT lastSeq, lastHash FROM trailguard_audit_head WHERE id = 1',
-    );
+    const currentHead = await prisma.auditHead.findUnique({
+      where: { id: 1 },
+    });
 
-    if (headRows.length === 0) {
+    if (!currentHead) {
       throw new Error('AuditHead table is empty.');
     }
 
-    const currentHead = headRows[0]!;
     const currentSeq = BigInt(currentHead.lastSeq);
 
     if (currentSeq <= BigInt(count)) {
@@ -59,29 +58,27 @@ export async function truncateTail(options: TruncateTailOptions = {}): Promise<{
     const targetSeq = currentSeq - BigInt(count);
 
     // 1. Delete rows after targetSeq
-    await prisma.$executeRawUnsafe(
-      'DELETE FROM trailguard_audit_log WHERE seq > ?',
-      targetSeq,
-    );
+    await prisma.auditLog.deleteMany({
+      where: { seq: { gt: targetSeq } },
+    });
 
     // 2. Fetch the target row's hash
-    const targetRows = await prisma.$queryRawUnsafe<Array<{ seq: bigint; hash: string }>>(
-      'SELECT seq, hash FROM trailguard_audit_log WHERE seq = ?',
-      targetSeq,
-    );
+    const newHead = await prisma.auditLog.findUnique({
+      where: { seq: targetSeq },
+    });
 
-    if (targetRows.length === 0) {
+    if (!newHead) {
       throw new Error(`Target row seq ${String(targetSeq)} not found after deletion.`);
     }
 
-    const newHead = targetRows[0]!;
-
     // 3. Reset AuditHead to target row
-    await prisma.$executeRawUnsafe(
-      'UPDATE trailguard_audit_head SET lastSeq = ?, lastHash = ? WHERE id = 1',
-      newHead.seq,
-      newHead.hash,
-    );
+    await prisma.auditHead.update({
+      where: { id: 1 },
+      data: {
+        lastSeq: newHead.seq,
+        lastHash: newHead.hash,
+      },
+    });
 
     console.log(
       `Truncated tail: deleted rows with seq > ${String(targetSeq)}. Reset AuditHead to seq ${String(newHead.seq)}.`,

@@ -1,24 +1,22 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: trailguard-mysql
+  postgres:
+    image: postgres:16-alpine
+    container_name: trailguard-postgres
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: trailguard_test
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: trailguard_test
     ports:
-      - "3307:3306"
-    command: >
-      --default-authentication-plugin=mysql_native_password
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
+      - "5432:5432"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
-      interval: 5s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U root -d trailguard_test"]
+      interval: 3s
+      timeout: 3s
       retries: 10
-      start_period: 10s
+      start_period: 3s
     volumes:
-      - trailguard-mysql-data:/var/lib/mysql
+      - trailguard-postgres-data:/var/lib/postgresql/data
 
 volumes:
-  trailguard-mysql-data:
+  trailguard-postgres-data:
+

@@ -19,8 +19,8 @@ describe('Integration: appendAuditEntries', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
+    await prisma.auditLog.deleteMany();
+    await prisma.auditHead.deleteMany();
     resetHeadCache();
   });
 

@@ -32,7 +32,7 @@ describe('parsePrismaSchema', () => {
   const sampleSchema = `
     // Datasource block to skip
     datasource db {
-      provider = "mysql"
+      provider = "postgresql"
       url      = env("DATABASE_URL")
     }
 
@@ -260,7 +260,7 @@ describe('loadPrismaSchema', () => {
 
     const schema = `
       datasource db {
-        provider = "mysql"
+        provider = "postgresql"
         url = env("DATABASE_URL")
       }
 

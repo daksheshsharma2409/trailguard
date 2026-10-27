@@ -8,7 +8,7 @@ Read `context.md` first. It is the spec; this file is the work queue.
 3. Only when **every acceptance criterion** passes: tick the box, commit as `T<id>: <title>`.
 4. If blocked or if the spec is ambiguous, stop and record it in `docs/DECISIONS.md`, then ask. Never weaken a test to make it pass.
 5. Tags: **[MVP]** must ship · **[T2]** do after MVP is complete · **[T3]** stretch, only if everything else is done.
-6. Integration tests need MySQL: `docker compose up -d` and `TEST_DATABASE_URL=mysql://root:root@localhost:3307/trailguard_test`.
+6. Integration tests need PostgreSQL: `docker compose up -d` and `TEST_DATABASE_URL=postgresql://root:root@localhost:5432/trailguard_test?schema=public`.
 
 Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
@@ -23,8 +23,8 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
 
 - [x] **T0.2 [MVP] CI + docker-compose**
   - dep: T0.1 · files: `.github/workflows/ci.yml`, `docker-compose.yml`
-  - Do: CI matrix Node 18/20/22 running lint, typecheck, unit tests; separate job with MySQL 8 service for `test:int`. `docker-compose.yml` exposes MySQL on 3307 (user root/root, db `trailguard_test`).
-  - Accept: workflow YAML valid; `docker compose up -d` gives a reachable MySQL.
+  - Do: CI matrix Node 18/20/22 running lint, typecheck, unit tests; separate job with PostgreSQL 16 service for `test:int`. `docker-compose.yml` exposes PostgreSQL on 5432 (user root/root, db `trailguard_test`).
+  - Accept: workflow YAML valid; `docker compose up -d` gives a reachable PostgreSQL.
 
 - [x] **T0.3 [MVP] Docs skeleton**
   - dep: T0.1 · files: `docs/DECISIONS.md`, `docs/THREAT_MODEL.md`, `docs/ARCHITECTURE.md`, `README.md` (stub), `CHANGELOG.md`
@@ -295,7 +295,7 @@ Legend: `dep:` = prerequisite task IDs · `files:` = main files touched.
   - dep: T6.1, T5.2 · Accept: CI job runs `trailguard ci --no-db` on the fixed demo app and fails the build if findings ≥ high; second CI job proves the **vulnerable** branch fails (expected-failure assertion).
 
 - [x] **T7.6 [T2] Final report assets**
-  - dep: T7.3 · Accept: `docs/REPORT.md` skeleton with architecture diagram, before/after demo screenshots/outputs placeholders, syllabus-mapping table (Express routing/middleware, MySQL/Prisma, migrations, seeding, relations, **transactions**, JWT/RBAC, error handling, TypeScript/OOP, `fs` export, npm publish/CI/deployment), limitations.
+  - dep: T7.3 · Accept: `docs/REPORT.md` skeleton with architecture diagram, before/after demo screenshots/outputs placeholders, syllabus-mapping table (Express routing/middleware, PostgreSQL/Prisma, migrations, seeding, relations, **transactions**, JWT/RBAC, error handling, TypeScript/OOP, `fs` export, npm publish/CI/deployment), limitations.
 
 ---
 

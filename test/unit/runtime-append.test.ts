@@ -1,7 +1,7 @@
 /**
  * Unit tests for audit log append algorithm (runtime/append.ts).
  *
- * Tests all branches using mock AuditPrismaTx without requiring MySQL:
+ * Tests all branches using mock AuditPrismaTx without requiring PostgreSQL:
  * - Empty entries array returns []
  * - testHooks.beforeAppend execution
  * - Head row initialization via ensureHeadRow

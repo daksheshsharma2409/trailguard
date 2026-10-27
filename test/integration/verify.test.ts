@@ -19,9 +19,9 @@ describe('Integration: verifyAuditChain', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-    await prisma.$executeRawUnsafe('DELETE FROM Student');
+    await prisma.auditLog.deleteMany();
+    await prisma.auditHead.deleteMany();
+    await prisma.student.deleteMany();
     resetHeadCache();
   });
 
@@ -63,9 +63,10 @@ describe('Integration: verifyAuditChain', () => {
     await seedStudents(4);
 
     // Tamper with payload of seq 3
-    await prisma.$executeRawUnsafe(
-      'UPDATE trailguard_audit_log SET payload = \'{"tampered":true}\' WHERE seq = 3',
-    );
+    await prisma.auditLog.update({
+      where: { seq: 3n },
+      data: { payload: '{"tampered":true}' },
+    });
 
     const result = await verifyAuditChain({
       prisma,
@@ -116,7 +117,7 @@ describe('Integration: verifyAuditChain', () => {
     await seedStudents(4);
 
     // Delete middle row (seq 2)
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log WHERE seq = 2');
+    await prisma.auditLog.delete({ where: { seq: 2n } });
 
     const result = await verifyAuditChain({
       prisma,
@@ -132,9 +133,9 @@ describe('Integration: verifyAuditChain', () => {
     await seedStudents(3);
 
     // Swap seq 1 and seq 2
-    await prisma.$executeRawUnsafe('UPDATE trailguard_audit_log SET seq = 99 WHERE seq = 1');
-    await prisma.$executeRawUnsafe('UPDATE trailguard_audit_log SET seq = 1 WHERE seq = 2');
-    await prisma.$executeRawUnsafe('UPDATE trailguard_audit_log SET seq = 2 WHERE seq = 99');
+    await prisma.auditLog.update({ where: { seq: 1n }, data: { seq: 99n } });
+    await prisma.auditLog.update({ where: { seq: 2n }, data: { seq: 1n } });
+    await prisma.auditLog.update({ where: { seq: 99n }, data: { seq: 2n } });
 
     const result = await verifyAuditChain({
       prisma,
@@ -149,9 +150,10 @@ describe('Integration: verifyAuditChain', () => {
     await seedStudents(3);
 
     // Corrupt AuditHead lastSeq
-    await prisma.$executeRawUnsafe(
-      'UPDATE trailguard_audit_head SET lastSeq = 999 WHERE id = 1',
-    );
+    await prisma.auditHead.update({
+      where: { id: 1 },
+      data: { lastSeq: 999n },
+    });
 
     const result = await verifyAuditChain({
       prisma,

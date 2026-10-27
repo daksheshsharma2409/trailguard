@@ -1,7 +1,7 @@
 /**
  * Unit tests for audit log verification algorithm (verify.ts).
  *
- * Tests all verification paths using mock Prisma client without requiring MySQL:
+ * Tests all verification paths using mock Prisma client without requiring PostgreSQL:
  * - Clean valid chain with gapless sequence and HMAC signatures
  * - Empty audit log and empty head
  * - HEAD_MISMATCH: missing head or lastSeq/lastHash mismatch

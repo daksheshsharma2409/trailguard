@@ -43,9 +43,9 @@ describe('Integration: trailguard ci CLI command', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-    await prisma.$executeRawUnsafe('DELETE FROM Student');
+    await prisma.auditLog.deleteMany();
+    await prisma.auditHead.deleteMany();
+    await prisma.student.deleteMany();
     resetHeadCache();
     process.env.TEST_CI_KEY = masterKey;
   });
@@ -155,9 +155,10 @@ describe('Integration: trailguard ci CLI command', () => {
     await seedStudents(3);
 
     // Tamper with payload of row 2
-    await prisma.$executeRawUnsafe(
-      "UPDATE trailguard_audit_log SET payload = '{\"tampered\": true}' WHERE seq = 2",
-    );
+    await prisma.auditLog.update({
+      where: { seq: 2n },
+      data: { payload: '{"tampered": true}' },
+    });
 
     const outcome = await runCiCommand({
       config: cleanFixtureConfig,

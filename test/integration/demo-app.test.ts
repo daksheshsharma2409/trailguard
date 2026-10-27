@@ -32,7 +32,7 @@ describe('Integration: Demo App (Fixed State)', () => {
     process.env.DATABASE_URL =
       process.env.DATABASE_URL ||
       process.env.TEST_DATABASE_URL ||
-      'mysql://root:root@localhost:3307/trailguard_test';
+      'postgresql://root:root@localhost:5432/trailguard_test?schema=public';
     process.env.TRAILGUARD_KEY = masterKey;
     process.env.JWT_SECRET = 'demo-jwt-secret-key-12345';
     await seed();

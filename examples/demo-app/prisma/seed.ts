@@ -15,10 +15,10 @@ export async function seed(): Promise<void> {
   console.log('Seeding demo database...');
 
   // Clean existing data for clean demo setup
-  await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-  await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-  await prisma.$executeRawUnsafe('DELETE FROM Student');
-  await prisma.$executeRawUnsafe('DELETE FROM User');
+  await prisma.auditLog.deleteMany();
+  await prisma.auditHead.deleteMany();
+  await prisma.student.deleteMany();
+  await prisma.user.deleteMany();
 
   await runWithAuditContext(
     { actorId: 'system:seed', actorRole: 'SYSTEM' },

@@ -21,9 +21,9 @@ describe('Integration: Checkpoints', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-    await prisma.$executeRawUnsafe('DELETE FROM Student');
+    await prisma.auditLog.deleteMany();
+    await prisma.auditHead.deleteMany();
+    await prisma.student.deleteMany();
     resetHeadCache();
   });
 
@@ -63,7 +63,7 @@ describe('Integration: Checkpoints', () => {
     const row2Hash = row2?.hash ?? '';
 
     // Malicious DB admin deletes rows 3 and 4, and resets AuditHead to row 2
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log WHERE seq IN (3, 4)');
+    await prisma.auditLog.deleteMany({ where: { seq: { in: [3n, 4n] } } });
     await prisma.auditHead.update({
       where: { id: 1 },
       data: { lastSeq: 2n, lastHash: row2Hash },

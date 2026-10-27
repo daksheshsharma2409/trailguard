@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     include: ['test/integration/**/*.test.ts'],
     environment: 'node',
-    // Integration tests need a MySQL instance; skip entirely if no TEST_DATABASE_URL
+    // Integration tests need a PostgreSQL instance; skip entirely if no TEST_DATABASE_URL
     setupFiles: ['test/integration/setup.ts'],
     testTimeout: 30000,
     hookTimeout: 30000,

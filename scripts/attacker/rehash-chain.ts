@@ -54,7 +54,7 @@ export async function rehashChain(options: RehashChainOptions = {}): Promise<{
   const databaseUrl =
     process.env.DATABASE_URL ||
     process.env.TEST_DATABASE_URL ||
-    'mysql://root:root@localhost:3307/trailguard_test';
+    'postgresql://root:root@localhost:5432/trailguard_test?schema=public';
 
   const prisma =
     options.prisma ||
@@ -63,9 +63,9 @@ export async function rehashChain(options: RehashChainOptions = {}): Promise<{
     });
 
   try {
-    const rows = (await prisma.$queryRawUnsafe<AuditRow[]>(
-      'SELECT seq, model, recordId, action, actorId, actorRole, requestId, ipAddress, userAgent, payload, `before`, after, diff, prevHash, hash FROM trailguard_audit_log ORDER BY seq ASC',
-    ));
+    const rows = await prisma.auditLog.findMany({
+      orderBy: { seq: 'asc' },
+    });
 
     if (rows.length === 0) {
       console.log('No audit rows found to rehash.');
@@ -119,13 +119,14 @@ export async function rehashChain(options: RehashChainOptions = {}): Promise<{
           .digest('hex');
       }
 
-      await prisma.$executeRawUnsafe(
-        'UPDATE trailguard_audit_log SET payload = ?, prevHash = ?, hash = ? WHERE seq = ?',
-        canonicalPayload,
-        prevHash,
-        newHash,
-        seq,
-      );
+      await prisma.auditLog.update({
+        where: { seq },
+        data: {
+          payload: canonicalPayload,
+          prevHash,
+          hash: newHash,
+        },
+      });
 
       prevHash = newHash;
       lastHash = newHash;
@@ -133,11 +134,13 @@ export async function rehashChain(options: RehashChainOptions = {}): Promise<{
     }
 
     // Update AuditHead so head matches the forged chain
-    await prisma.$executeRawUnsafe(
-      'UPDATE trailguard_audit_head SET lastSeq = ?, lastHash = ? WHERE id = 1',
-      lastSeq,
-      lastHash,
-    );
+    await prisma.auditHead.update({
+      where: { id: 1 },
+      data: {
+        lastSeq,
+        lastHash,
+      },
+    });
 
     console.log(
       `Rehashed ${String(rows.length)} audit rows using ${options.attackerKey ? 'guessed key' : 'plain SHA-256'}. AuditHead updated to seq ${String(lastSeq)}.`,

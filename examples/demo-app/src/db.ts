@@ -12,7 +12,7 @@ import { createAuditClient } from '../../../src/index.js';
 const databaseUrl =
   process.env.DATABASE_URL ||
   process.env.TEST_DATABASE_URL ||
-  'mysql://root:root@localhost:3307/trailguard_test';
+  'postgresql://root:root@localhost:5432/trailguard_test?schema=public';
 
 export const prisma = new PrismaClient({
   datasources: {

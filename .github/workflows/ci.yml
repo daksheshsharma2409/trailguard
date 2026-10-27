@@ -46,25 +46,25 @@ jobs:
       - name: Verify CLI --version
         run: node bin/trailguard.js --version
 
-  # ── Integration tests (MySQL required) ────────────────────────────────────
+  # ── Integration tests (PostgreSQL required) ──────────────────────────────
   test-integration:
     name: Integration tests
     runs-on: ubuntu-latest
     # Only run on Node 20 for integration tests (saves CI minutes)
     services:
-      mysql:
-        image: mysql:8.0
+      postgres:
+        image: postgres:16-alpine
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: trailguard_test
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: root
+          POSTGRES_DB: trailguard_test
         options: >-
-          --health-cmd "mysqladmin ping -h localhost -uroot -proot"
-          --health-interval 5s
-          --health-timeout 5s
+          --health-cmd "pg_isready -U root -d trailguard_test"
+          --health-interval 3s
+          --health-timeout 3s
           --health-retries 10
-          --health-start-period 10s
         ports:
-          - 3307:3306
+          - 5432:5432
 
     steps:
       - uses: actions/checkout@v4
@@ -87,8 +87,8 @@ jobs:
       - name: Integration tests
         run: npm run test:int
         env:
-          TEST_DATABASE_URL: mysql://root:root@localhost:3307/trailguard_test
-          DATABASE_URL: mysql://root:root@localhost:3307/trailguard_test
+          TEST_DATABASE_URL: postgresql://root:root@localhost:5432/trailguard_test?schema=public
+          DATABASE_URL: postgresql://root:root@localhost:5432/trailguard_test?schema=public
           TRAILGUARD_KEY: demo-trailguard-master-key-32chars!!
           JWT_SECRET: demo-jwt-secret-key-12345
 

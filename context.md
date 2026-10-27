@@ -8,7 +8,7 @@
 
 ## 0. One-paragraph summary
 
-`trailguard` is a single npm package (TypeScript, ESM) for **Express + Prisma + MySQL** backends. It has two halves that talk to each other:
+`trailguard` is a single npm package (TypeScript, ESM) for **Express + Prisma + PostgreSQL** backends. It has two halves that talk to each other:
 
 1. **Static side (pre-deployment):** `trailguard scan` reads source with `ts-morph` + `schema.prisma` (no app boot, no DB) and reports which Express routes are unprotected (no auth / no role check / no ownership signal), derives a **role × resource × action matrix**, and finds Prisma writes that **bypass the audited client**.
 2. **Runtime side (post-deployment):** an audited Prisma client (`$extends`) records every create/update/delete in a **tamper-evident, HMAC-chained, append-only audit log**, with actor context from `AsyncLocalStorage`, redaction, diffs, signed external checkpoints, a verify function, and a guarded Express router.
@@ -30,7 +30,7 @@ Tagline: **Declare, enforce, prove.**
 ### Non-goals (do NOT build)
 - Runtime auth library (not competing with passport/casl).
 - VS Code extension, web dashboard, `--fix` auto-patching, OpenAPI diff, webhooks.
-- Support for databases other than MySQL (runtime side). Static side only reads `schema.prisma`, so any provider parses.
+- Support for databases other than PostgreSQL (runtime side). Static side only reads `schema.prisma`, so any provider parses.
 - Support for frameworks other than Express 4/5.
 - Full automatic proof of ownership checks (impossible statically; we label `probable`).
 - Composite-primary-key perfection (basic support only, see §7.7).
@@ -45,7 +45,7 @@ Tagline: **Declare, enforce, prove.**
 | Module system | ESM only. `"type": "module"`, `moduleResolution: "NodeNext"`; relative imports use `.js` extension |
 | Node | `>=18.18` (CI matrix: 18, 20, 22) |
 | Build | `tsup` (entries: `src/index.ts`, `src/scan/index.ts`, `src/cli.ts`), emit `.d.ts` |
-| Tests | `vitest`; `supertest` for HTTP; MySQL 8 via `docker-compose.yml` for integration tests |
+| Tests | `vitest`; `supertest` for HTTP; PostgreSQL 16 via `docker-compose.yml` for integration tests |
 | AST | `ts-morph` |
 | CLI | `commander` |
 | Validation | `zod` |
@@ -58,7 +58,7 @@ Tagline: **Declare, enforce, prove.**
 - `dependencies`: `ts-morph`, `commander`, `zod`, `jiti`. **Nothing else** without a `docs/DECISIONS.md` entry.
 - `peerDependencies`: `@prisma/client >=5`, `express >=4` (**both optional via `peerDependenciesMeta`**; static-only users don't need them at runtime; `express` types only needed for `auditRouter`/`auditContext`).
 - Runtime entry (`trailguard`) must **not import `ts-morph`** (keeps app startup light). Static entry (`trailguard/scan`) may.
-- `devDependencies`: everything for tests/build, including `express`, `@prisma/client`, `prisma`, `supertest`, `mysql2` not required (Prisma has its own driver).
+- `devDependencies`: everything for tests/build, including `express`, `@prisma/client`, `prisma`, `supertest`.
 
 ---
 
@@ -117,7 +117,7 @@ trailguard/
 │   ├── unit/                       # pure-function tests
 │   ├── fixtures/                   # tiny Express apps (static analysis targets), see §13
 │   ├── scan/                       # tests that run scan() over fixtures
-│   └── integration/                # needs MySQL; own prisma schema + generated client
+│   └── integration/                # needs PostgreSQL; own prisma schema + generated client
 ├── examples/
 │   └── demo-app/                   # Express + Prisma + JWT demo (§12)
 ├── scripts/
@@ -127,7 +127,7 @@ trailguard/
 │   ├── THREAT_MODEL.md
 │   └── ARCHITECTURE.md
 ├── .github/workflows/ci.yml
-├── docker-compose.yml              # mysql:8 for tests/demo
+├── docker-compose.yml              # postgres:16 for tests/demo
 ├── trailguard.config.ts            # self-config used by the demo
 ├── README.md  CHANGELOG.md  LICENSE
 └── package.json  tsconfig.json  tsup.config.ts  vitest.config.ts
@@ -387,7 +387,7 @@ Rules: AuditLog is **append-only** (the library never updates/deletes it). Docs 
 - `ts` generated **in app code** (`new Date().toISOString()`), lives inside the payload. `createdAt` is never used in hashing.
 - `hash = HMAC_SHA256(key[keyId], payload)` → lowercase hex (64 chars).
 - Genesis: seq 1 has `prevHash = GENESIS_HASH`.
-- **Why a payload string column:** MySQL `JSON` normalizes key order/number formats, so re-serializing `before/after` from the DB can change bytes. Verify hashes the stored `payload` string only. It then also cross-checks that the convenience columns match the parsed payload (§7.9).
+- **Why a payload string column:** PostgreSQL/MySQL `JSON` normalizes key order/number formats, so re-serializing `before/after` from the DB can change bytes. Verify hashes the stored `payload` string only. It then also cross-checks that the convenience columns match the parsed payload (§7.9).
 
 ### 7.3 `stableStringify` (canonical JSON) — `core/canonical.ts`
 - Object keys sorted (codepoint order), recursively. Arrays keep order.
@@ -568,7 +568,7 @@ type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE';
 ---
 
 ## 11. Demo app (`examples/demo-app`)
-Blog-less, **college** scenario. Express + TS + Prisma + MySQL (docker-compose) + JWT.
+Blog-less, **college** scenario. Express + TS + Prisma + PostgreSQL (docker-compose) + JWT.
 - Models: `User { id, email, passwordHash, role(ADMIN|TEACHER|STUDENT|AUDITOR), phone? }`, `Student { id, name, email, phone, marks, teacherId? }`, plus `AuditLog`, `AuditHead`.
 - Auth: `POST /auth/register`, `POST /auth/login` (bcrypt hash — use `bcryptjs`; access JWT 15m via `jsonwebtoken`; refresh token optional).
 - Middleware named exactly as in config: `authenticate`, `requireRole`.
@@ -605,7 +605,7 @@ Blog-less, **college** scenario. Express + TS + Prisma + MySQL (docker-compose) 
 | `import-resolution` | default/named/re-exported routers resolve |
 Each test asserts: ruleIds, composed paths, counts, exit code, and (for 2–3 fixtures) a markdown snapshot.
 
-### 12.3 Integration (MySQL; skipped unless `TEST_DATABASE_URL` set)
+### 12.3 Integration (PostgreSQL; skipped unless `TEST_DATABASE_URL` set)
 - CREATE/UPDATE/DELETE produce correct before/after/diff and a valid chain.
 - Redaction: raw password string never appears in any column (`SELECT ... LIKE`).
 - Tamper: edit a row → `HASH_MISMATCH`; edit `before` column only → `COLUMN_PAYLOAD_MISMATCH`; delete a middle row → `SEQ_GAP`; swap two rows' seq → fails; delete **last** row + reset head → only checkpoint detects (`TRUNCATION_DETECTED`).
@@ -653,7 +653,7 @@ Coverage target: ≥ 80% lines on `scan/**` (excluding reporters), `runtime/**`,
 - Redaction tag = truncated HMAC, 4 hex chars.
 - Hand-written Prisma schema parser (no `@prisma/internals`).
 - Config via `jiti`; strict zod (unknown keys rejected).
-- MySQL only for runtime; docker-compose for tests.
+- PostgreSQL for runtime; docker-compose for tests.
 - Name: `trailguard` (check availability at publish time; scoped fallback `@<user>/trailguard`).
 
 ---

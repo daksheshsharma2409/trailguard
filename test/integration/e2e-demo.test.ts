@@ -40,7 +40,7 @@ describe('Integration: End-to-End Demo (T6.4)', () => {
     process.env.DATABASE_URL =
       process.env.DATABASE_URL ||
       process.env.TEST_DATABASE_URL ||
-      'mysql://root:root@localhost:3307/trailguard_test';
+      'postgresql://root:root@localhost:5432/trailguard_test?schema=public';
     process.env.TRAILGUARD_KEY = masterKey;
     process.env.JWT_SECRET = 'demo-jwt-secret-key-12345';
 
@@ -167,10 +167,11 @@ describe('Integration: End-to-End Demo (T6.4)', () => {
   });
 
   it('Step 5: detects direct database payload tampering as HASH_MISMATCH', async () => {
-    // Direct MySQL modification of a past row
-    await prisma.$executeRawUnsafe(
-      'UPDATE trailguard_audit_log SET payload = \'{"tampered":true}\' WHERE seq = 2',
-    );
+    // Direct database modification of a past row
+    await prisma.auditLog.update({
+      where: { seq: 2n },
+      data: { payload: '{"tampered":true}' },
+    });
 
     const tamperedOutcome = await runVerifyCommand({
       config: demoConfigPath,
@@ -208,15 +209,12 @@ describe('Integration: End-to-End Demo (T6.4)', () => {
     await seed();
 
     // Query current head
-    const headRows = await prisma.$queryRawUnsafe<
-      Array<{ lastSeq: bigint; lastHash: string }>
-    >('SELECT lastSeq, lastHash FROM trailguard_audit_head WHERE id = 1');
-    expect(headRows.length).toBeGreaterThan(0);
-    const initialHead = headRows[0]!;
+    const initialHead = await prisma.auditHead.findUnique({ where: { id: 1 } });
+    expect(initialHead).not.toBeNull();
 
     // Create an external checkpoint before truncation
     const cp = createCheckpoint(
-      { seq: initialHead.lastSeq, hash: initialHead.lastHash },
+      { seq: initialHead!.lastSeq, hash: initialHead!.lastHash },
       masterKey,
       'k1',
     );

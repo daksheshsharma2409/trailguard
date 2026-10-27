@@ -4,7 +4,7 @@ _Last updated: 2026-10-26_
 
 ## 1. Overview and Security Goals
 
-`trailguard` provides **tamper-evident** audit logging and static authorization governance for Express + Prisma + MySQL backends.
+`trailguard` provides **tamper-evident** audit logging and static authorization governance for Express + Prisma + PostgreSQL backends.
 
 The primary security goals are:
 1. **Tamper Evidence:** Any unauthorized mutation, reordering, or gap in audit log records must be deterministically detectable upon verification.
@@ -24,7 +24,7 @@ The following matrix documents the specific capabilities of potential adversarie
 | **2. DB Admin**<br>*(Full database administrator access; can execute arbitrary DDL/DML, drop tables, or rewrite rows)* | ✅ **YES** | **Monotonic gapless sequence & HMAC chaining:** If a middle row is deleted, `seq` has a gap (`SEQ_GAP`). If rows are reordered, `seq` and `prevHash` mismatch. If the admin rewrites a range of rows and attempts to recompute hashes, verification fails because the admin lacks the HMAC key held outside the DB. | If the admin deletes the *entire table* or drops the database, audit history is destroyed unless external backups or checkpoints exist. |
 | **3. Key Theft**<br>*(Adversary exfiltrates `TRAILGUARD_KEY` from environment variables, process memory, or secrets manager)* | ⚠️ **PARTIAL** | **External Signed Checkpoints:** Past entries that were already hashed, signed, and shipped to an external append-only sink (e.g., S3 Object Lock, external syslog, CI artifacts) **cannot be rewritten without detection**. Any attempt to alter historical entries contradicts the recorded `(seq, hash)` checkpoints. | An attacker with **both** the key and DB write access can forge future audit entries or rewrite entries produced after the most recent checkpoint. **Mitigation:** Store keys in HSM/AWS Secrets Manager, rotate keys, and emit checkpoints frequently (`checkpoint.every: 50`). |
 | **4. Truncation**<br>*(Attacker deletes the last $N$ rows and rewinds `AuditHead.lastSeq` and `lastHash`)* | ✅ **YES** *(with checkpoints)* | **Checkpoint high-water mark verification:** During `trailguard verify --checkpoints <file>`, the verifier compares the highest checkpoint `seq` against the database `lastSeq`. If `dbLastSeq < checkpoint.seq`, verification aborts with `TRUNCATION_DETECTED`. | Any writes that occurred *after* the latest emitted checkpoint and were truncated before a new checkpoint was created are lost if no external copy exists. **Mitigation:** Stream checkpoints synchronously or trigger on shutdown/periodic timers. |
-| **5. App-Level Bypass**<br>*(Developer or attacker in codebase uses raw Prisma client, raw SQL, or separate microservice)* | ⚠️ **PARTIAL** | **Static Scanner (`AUD001`, `AUD003`):** `trailguard scan` scans repository ASTs with `ts-morph` and flags any direct `prisma.<model>.<write>()` call on audited models or mutating raw SQL (`$executeRaw`). | Mutations executed outside the scanned codebase (e.g., raw MySQL CLI console, unmanaged microservices, legacy ETL pipelines) are not routed through `auditClient` and cannot be captured. **Mitigation:** Enforce MySQL table-level permissions granting `INSERT` only to the application user and audit raw binlogs. |
+| **5. App-Level Bypass**<br>*(Developer or attacker in codebase uses raw Prisma client, raw SQL, or separate microservice)* | ⚠️ **PARTIAL** | **Static Scanner (`AUD001`, `AUD003`):** `trailguard scan` scans repository ASTs with `ts-morph` and flags any direct `prisma.<model>.<write>()` call on audited models or mutating raw SQL (`$executeRaw`). | Mutations executed outside the scanned codebase (e.g., raw PostgreSQL CLI console / psql, unmanaged microservices, legacy ETL pipelines) are not routed through `auditClient` and cannot be captured. **Mitigation:** Enforce PostgreSQL table-level permissions granting `INSERT` only to the application user and audit raw WAL/logs. |
 | **6. Replay**<br>*(Attacker attempts to replay an earlier legitimate audit entry or duplicate sequence number)* | ✅ **YES** | **Gapless sequence & head locking:** Audit sequences are strictly assigned under `SELECT ... FOR UPDATE` row lock on `AuditHead`. A duplicate `seq` violates the primary key constraint. Re-inserting a past entry at the head fails because its `prevHash` will not match the current `lastHash`. | Replay of application-level HTTP requests (e.g., double spend) is an application idempotency concern, though the audit log will faithfully record both events with unique `seq` and timestamps. |
 
 ---
@@ -47,7 +47,7 @@ The following matrix documents the specific capabilities of potential adversarie
 1. **External Unauthenticated Attacker:** Probes HTTP endpoints for missing authentication (`RBAC001`), missing role checks (`RBAC002`), or unguarded audit routers (`AUD002`). Defended by static CI gates.
 2. **Malicious Insider / Rogue Employee:** Authenticated user performing actions beyond their authorized scope. Defended by `trailguard drift` cross-referencing runtime actor roles against the static RBAC matrix.
 3. **Compromised Node.js App Server:** Attacker achieves remote code execution in Node.js process. They gain access to `TRAILGUARD_KEY`. Mitigated by external signed checkpoints preventing history rewrite.
-4. **Malicious Database Administrator (DBA):** Attacker has root MySQL access and attempts to manipulate audit rows or drop evidence. Defended by HMAC verification, gapless sequence tracking, and checkpoint comparisons.
+4. **Malicious Database Administrator (DBA):** Attacker has superuser PostgreSQL access and attempts to manipulate audit rows or drop evidence. Defended by HMAC verification, gapless sequence tracking, and checkpoint comparisons.
 
 ---
 
@@ -67,7 +67,7 @@ COMMIT;
 If the business mutation fails, the audit record is not created. If the audit append fails, the business mutation rolls back.
 
 ### 5.2 Deterministic Canonical Payloads
-MySQL JSON columns do not preserve key ordering. To prevent false integrity failures, hashing is computed strictly on canonical JSON (RFC 8785) stored in the `payload` `LongText` column.
+PostgreSQL JSON/JSONB columns do not preserve key ordering. To prevent false integrity failures, hashing is computed strictly on canonical JSON (RFC 8785) stored in the `payload` `Text` column.
 
 ### 5.3 Salted Redaction
 Sensitive fields (e.g., passwords, credit card numbers, PII) are replaced with `[REDACTED:<tag>]` using a 4-hex-character HMAC tag. This proves that a field was changed without revealing the plaintext value, and prevents rainbow table inversion.

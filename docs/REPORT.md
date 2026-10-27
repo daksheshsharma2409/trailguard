@@ -1,7 +1,7 @@
 # Final Project Report: trailguard
 
 > **Declare, Enforce, Prove.**  
-> Static RBAC and audit-coverage scanner coupled with a tamper-evident, HMAC-SHA256-chained runtime audit log for Express + Prisma + MySQL.
+> Static RBAC and audit-coverage scanner coupled with a tamper-evident, HMAC-SHA256-chained runtime audit log for Express + Prisma + PostgreSQL.
 
 ---
 
@@ -70,16 +70,16 @@ This project demonstrates deep, production-grade mastery of modern software engi
 | Domain / Concept | Implementation in trailguard | Key Files / Reference |
 |---|---|---|
 | **Express Routing & Middleware** | Recursive mount composition (`app.use` prefix nesting), order-dependent middleware chain analysis, route extraction (`app.METHOD`, `router.route().patch()`), and middleware classification (`auth`, `role`, `ownership`, `neutral`). | [`src/scan/routes.ts`](../src/scan/routes.ts)<br>[`src/scan/mounts.ts`](../src/scan/mounts.ts)<br>[`src/scan/classify.ts`](../src/scan/classify.ts) |
-| **MySQL & Prisma ORM** | Custom lightweight regex/AST parser for `schema.prisma` without heavy internals; Prisma Client Extensions (`$extends`) query interceptors for `create`, `update`, `delete`, and `upsert`. | [`src/scan/prisma-schema.ts`](../src/scan/prisma-schema.ts)<br>[`src/runtime/client.ts`](../src/runtime/client.ts)<br>[`prisma/trailguard.prisma`](../prisma/trailguard.prisma) |
-| **Database Migrations** | Monotonically versioned Prisma migrations defining `trailguard_audit_log` (BigInt gapless sequence, LongText canonical payload, SHA256 hashes) and `trailguard_audit_head` mutex table. | [`prisma/trailguard.prisma`](../prisma/trailguard.prisma)<br>[`examples/demo-app/prisma/migrations/`](../examples/demo-app/prisma) |
+| **PostgreSQL & Prisma ORM** | Custom lightweight regex/AST parser for `schema.prisma` without heavy internals; Prisma Client Extensions (`$extends`) query interceptors for `create`, `update`, `delete`, and `upsert`. | [`src/scan/prisma-schema.ts`](../src/scan/prisma-schema.ts)<br>[`src/runtime/client.ts`](../src/runtime/client.ts)<br>[`prisma/trailguard.prisma`](../prisma/trailguard.prisma) |
+| **Database Migrations** | Monotonically versioned Prisma migrations defining `trailguard_audit_log` (BigInt gapless sequence, Text canonical payload, SHA256 hashes) and `trailguard_audit_head` mutex table. | [`prisma/trailguard.prisma`](../prisma/trailguard.prisma)<br>[`examples/demo-app/prisma/migrations/`](../examples/demo-app/prisma) |
 | **Database Seeding** | System-level execution context (`runWithAuditContext`) allowing seeders and background jobs to record audit events under designated system identities (`actorId: 'system:seed'`). | [`examples/demo-app/prisma/seed.ts`](../examples/demo-app/prisma/seed.ts)<br>[`src/runtime/context.ts`](../src/runtime/context.ts) |
 | **Entity Relations** | Prisma schema model relations (1:1, 1:N, self-relations), foreign key mappings, and automatic owner-field inference (`userId`, `authorId`, `ownerId`). | [`src/scan/ownership.ts`](../src/scan/ownership.ts)<br>[`examples/demo-app/prisma/schema.prisma`](../examples/demo-app/prisma/schema.prisma) |
-| **Database Transactions** | Strict atomicity: business mutations and audit entries execute in the same transaction. Serialized sequence allocation using MySQL row locking (`SELECT ... FOR UPDATE` on `AuditHead`). If audit logging fails, business write rolls back. | [`src/runtime/append.ts`](../src/runtime/append.ts)<br>[`src/runtime/service.ts`](../src/runtime/service.ts) |
+| **Database Transactions** | Strict atomicity: business mutations and audit entries execute in the same transaction. Serialized sequence allocation using PostgreSQL row locking (`SELECT ... FOR UPDATE` on `AuditHead`). If audit logging fails, business write rolls back. | [`src/runtime/append.ts`](../src/runtime/append.ts)<br>[`src/runtime/service.ts`](../src/runtime/service.ts) |
 | **JWT & RBAC** | Stateless JWT authentication, role extraction middleware (`firstStringArg`, `allStringArgs`, `arrayArg`), and derivation of static 2D access matrices across CRUD actions and roles. | [`src/scan/matrix.ts`](../src/scan/matrix.ts)<br>[`examples/demo-app/src/middleware/auth.ts`](../examples/demo-app/src/middleware/auth.ts) |
 | **Error Handling Architecture** | Strict typed error class hierarchy extending `TrailguardError` (`AuditChainBrokenError`, `AuditContextMissingError`, `ScanConfigError`, etc.) with stable machine-readable `.code` identifiers. | [`src/core/errors.ts`](../src/core/errors.ts) |
 | **TypeScript & OOP** | Strict type system (`strict: true`, `noImplicitAny`, `exactOptionalPropertyTypes: true`), AST manipulation with `ts-morph`, custom Zod validation schemas, and facade patterns (`AuditChainService`). | [`src/core/types.ts`](../src/core/types.ts)<br>[`src/config/schema.ts`](../src/config/schema.ts)<br>[`src/runtime/service.ts`](../src/runtime/service.ts) |
 | **File System & IO Export** | File sink streams for signed checkpoints, `.trailguard-baseline.json` fingerprint persistence, Markdown/JSON/SARIF v2.1.0 report generation, and CSV export with formula injection defense (`=`, `+`, `-`, `@` escaping). | [`src/runtime/router.ts`](../src/runtime/router.ts)<br>[`src/scan/baseline.ts`](../src/scan/baseline.ts)<br>[`src/scan/report/`](../src/scan/report) |
-| **Publishing, CI & Deployment** | Dual ESM packaging via `tsup` ensuring runtime bundle excludes `ts-morph`; `npm pack --dry-run` whitelist enforcement; GitHub Actions CI matrices across Node 18, 20, 22; Docker Compose MySQL test infrastructure; automated self-audit CI gates. | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)<br>[`tsup.config.ts`](../tsup.config.ts)<br>[`package.json`](../package.json) |
+| **Publishing, CI & Deployment** | Dual ESM packaging via `tsup` ensuring runtime bundle excludes `ts-morph`; `npm pack --dry-run` whitelist enforcement; GitHub Actions CI matrices across Node 18, 20, 22; Docker Compose PostgreSQL test infrastructure; automated self-audit CI gates. | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)<br>[`tsup.config.ts`](../tsup.config.ts)<br>[`package.json`](../package.json) |
 
 ---
 
@@ -143,7 +143,7 @@ $ npx trailguard verify
 ```
 
 ### 4.5 Step 5: Direct Tampering Detection
-An attacker executes direct SQL in MySQL:
+An attacker executes direct SQL in PostgreSQL:
 `UPDATE trailguard_audit_log SET after = '{"name":"Hacked"}' WHERE seq = 2;`
 
 **Console Output:**
@@ -179,7 +179,7 @@ Exit code 1.
 ```
 
 ### 4.8 Step 8: Operational Drift Detection
-A `TEACHER` deletes a `User` record in MySQL. The static matrix states only `ADMIN` may delete `User`.
+A `TEACHER` deletes a `User` record in PostgreSQL. The static matrix states only `ADMIN` may delete `User`.
 ```
 $ npx trailguard drift
 Trailguard Drift Analysis

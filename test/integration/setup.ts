@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { beforeAll } from 'vitest';
 
 export const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? 'mysql://root:root@localhost:3307/trailguard_test';
+  process.env.TEST_DATABASE_URL ?? 'postgresql://root:root@localhost:5432/trailguard_test?schema=public';
 process.env.TEST_DATABASE_URL = TEST_DATABASE_URL;
 
 beforeAll(() => {

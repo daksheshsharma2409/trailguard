@@ -40,9 +40,9 @@ describe('Integration: trailguard verify CLI command', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-    await prisma.$executeRawUnsafe('DELETE FROM Student');
+    await prisma.auditLog.deleteMany();
+    await prisma.auditHead.deleteMany();
+    await prisma.student.deleteMany();
     resetHeadCache();
     process.env.TEST_VERIFY_KEY = masterKey;
   });
@@ -84,10 +84,11 @@ describe('Integration: trailguard verify CLI command', () => {
   it('tampered DB returns exit 1 with seq and reason', async () => {
     await seedStudents(3);
 
-    // Tamper with seq 2 directly in MySQL
-    await prisma.$executeRawUnsafe(
-      "UPDATE trailguard_audit_log SET payload = 'TAMPERED' WHERE seq = 2",
-    );
+    // Tamper with seq 2
+    await prisma.auditLog.update({
+      where: { seq: 2n },
+      data: { payload: 'TAMPERED' },
+    });
 
     const outcome = await runVerifyCommand({
       prisma,
@@ -137,11 +138,9 @@ describe('Integration: trailguard verify CLI command', () => {
     await seedStudents(5);
 
     // Create a checkpoint at seq 5
-    const headRow = await prisma.$queryRaw<
-      Array<{ lastSeq: bigint; lastHash: string }>
-    >`SELECT lastSeq, lastHash FROM trailguard_audit_head WHERE id = 1`;
-    const lastSeq = headRow[0]?.lastSeq;
-    const lastHash = headRow[0]?.lastHash;
+    const headRow = await prisma.auditHead.findUnique({ where: { id: 1 } });
+    const lastSeq = headRow?.lastSeq;
+    const lastHash = headRow?.lastHash;
     expect(lastSeq).toBe(5n);
 
     const cp = createCheckpoint({ seq: lastSeq!, hash: lastHash! }, masterKey, 'default');
@@ -149,15 +148,13 @@ describe('Integration: trailguard verify CLI command', () => {
     await fileSink(cpFile)(cp);
 
     // Attacker truncates rows 4 and 5, resets head to seq 3
-    const row3 = await prisma.$queryRaw<
-      Array<{ hash: string }>
-    >`SELECT hash FROM trailguard_audit_log WHERE seq = 3`;
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log WHERE seq > 3');
-    const row3Hash = row3[0]?.hash ?? '';
-    await prisma.$executeRawUnsafe(
-      'UPDATE trailguard_audit_head SET lastSeq = 3, lastHash = ? WHERE id = 1',
-      row3Hash,
-    );
+    const row3 = await prisma.auditLog.findUnique({ where: { seq: 3n } });
+    await prisma.auditLog.deleteMany({ where: { seq: { gt: 3n } } });
+    const row3Hash = row3?.hash ?? '';
+    await prisma.auditHead.update({
+      where: { id: 1 },
+      data: { lastSeq: 3n, lastHash: row3Hash },
+    });
 
     // Without checkpoints, verify alone says valid (3 records)
     const outcomeWithoutCp = await runVerifyCommand({
@@ -180,12 +177,14 @@ describe('Integration: trailguard verify CLI command', () => {
     await seedStudents(4);
 
     // Tamper with seq 2 and seq 3
-    await prisma.$executeRawUnsafe(
-      "UPDATE trailguard_audit_log SET payload = 'TAMPERED_A' WHERE seq = 2",
-    );
-    await prisma.$executeRawUnsafe(
-      "UPDATE trailguard_audit_log SET payload = 'TAMPERED_B' WHERE seq = 3",
-    );
+    await prisma.auditLog.update({
+      where: { seq: 2n },
+      data: { payload: 'TAMPERED_A' },
+    });
+    await prisma.auditLog.update({
+      where: { seq: 3n },
+      data: { payload: 'TAMPERED_B' },
+    });
 
     const outcome = await runVerifyCommand({
       prisma,

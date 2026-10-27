@@ -19,9 +19,9 @@ describe('Integration: AuditChainService', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-    await prisma.$executeRawUnsafe('DELETE FROM Student');
+    await prisma.auditLog.deleteMany();
+    await prisma.auditHead.deleteMany();
+    await prisma.student.deleteMany();
     resetHeadCache();
   });
 

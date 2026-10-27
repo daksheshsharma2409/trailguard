@@ -151,7 +151,7 @@ export async function appendAuditEntries(
 
   // Lock head last to minimize lock-hold time
   let headRows = await tx.$queryRaw<Array<{ lastSeq: bigint; lastHash: string }>>`
-    SELECT lastSeq, lastHash FROM trailguard_audit_head WHERE id = 1 FOR UPDATE
+    SELECT "lastSeq", "lastHash" FROM "trailguard_audit_head" WHERE id = 1 FOR UPDATE
   `;
 
   if (headRows.length === 0) {
@@ -163,7 +163,7 @@ export async function appendAuditEntries(
       });
     }
     headRows = await tx.$queryRaw<Array<{ lastSeq: bigint; lastHash: string }>>`
-      SELECT lastSeq, lastHash FROM trailguard_audit_head WHERE id = 1 FOR UPDATE
+      SELECT "lastSeq", "lastHash" FROM "trailguard_audit_head" WHERE id = 1 FOR UPDATE
     `;
   }
 

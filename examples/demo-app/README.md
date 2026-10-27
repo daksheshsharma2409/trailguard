@@ -1,11 +1,11 @@
 # Trailguard Demo Application: College Portal
 
-A demonstration Express + Prisma + MySQL college management portal protected by **Trailguard**.
+A demonstration Express + Prisma + PostgreSQL college management portal protected by **Trailguard**.
 
 ## Architecture & Features
 
 - **Express + TypeScript:** RESTful routing with layered middleware.
-- **Prisma + MySQL:** Data models for `User`, `Student`, `AuditLog`, and `AuditHead`.
+- **Prisma + PostgreSQL:** Data models for `User`, `Student`, `AuditLog`, and `AuditHead`.
 - **JWT Authentication:** 15-minute token expiry, hashed passwords (`bcryptjs`).
 - **RBAC:** Roles for `ADMIN`, `TEACHER`, `STUDENT`, and `AUDITOR`.
 - **Trailguard Static Scanner:** Continuous verification of route authentication, role guards, and Prisma write safety (`trailguard scan`).
@@ -14,7 +14,7 @@ A demonstration Express + Prisma + MySQL college management portal protected by 
 
 ## Quick Start
 
-### 1. Start MySQL Database
+### 1. Start PostgreSQL Database
 ```bash
 docker compose up -d
 ```

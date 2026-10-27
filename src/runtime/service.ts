@@ -290,7 +290,7 @@ export class AuditChainService {
     }
 
     const headRows = await rawTx.$queryRaw<Array<{ lastSeq: bigint; lastHash: string }>>`
-      SELECT lastSeq, lastHash FROM trailguard_audit_head WHERE id = 1
+      SELECT "lastSeq", "lastHash" FROM "trailguard_audit_head" WHERE id = 1
     `;
     const head = headRows[0];
     if (!head) {

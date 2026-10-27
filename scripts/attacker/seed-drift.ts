@@ -20,7 +20,7 @@ export async function seedDrift(options: SeedDriftOptions = {}): Promise<void> {
   const databaseUrl =
     process.env.DATABASE_URL ||
     process.env.TEST_DATABASE_URL ||
-    'mysql://root:root@localhost:3307/trailguard_test';
+    'postgresql://root:root@localhost:5432/trailguard_test?schema=public';
 
   const prisma =
     options.prisma ||

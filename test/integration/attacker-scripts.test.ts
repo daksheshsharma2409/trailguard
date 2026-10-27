@@ -42,9 +42,9 @@ describe('Integration: Attacker Scripts (T6.3)', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-    await prisma.$executeRawUnsafe('DELETE FROM Student');
+    await prisma.auditLog.deleteMany();
+    await prisma.auditHead.deleteMany();
+    await prisma.student.deleteMany();
     resetHeadCache();
     process.env.TEST_ATTACKER_KEY = masterKey;
     if (fs.existsSync(checkpointsFile)) {
@@ -104,10 +104,8 @@ describe('Integration: Attacker Scripts (T6.3)', () => {
     await seedAuditRows(5);
 
     // Emit a legitimate external checkpoint at seq 5
-    const headRows = await prisma.$queryRawUnsafe<Array<{ lastSeq: bigint; lastHash: string }>>(
-      'SELECT lastSeq, lastHash FROM trailguard_audit_head WHERE id = 1',
-    );
-    const head = headRows[0]!;
+    const head = await prisma.auditHead.findUnique({ where: { id: 1 } });
+    if (!head) throw new Error('Head not found');
     const cp = createCheckpoint({ seq: head.lastSeq, hash: head.lastHash }, masterKey, 'primary');
     await fileSink(checkpointsFile)(cp);
 

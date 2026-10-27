@@ -36,9 +36,9 @@ describe('Integration: Read-access auditing (T3.15)', () => {
   });
 
   beforeEach(async () => {
-    await rawPrisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await rawPrisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-    await rawPrisma.$executeRawUnsafe('DELETE FROM Student');
+    await rawPrisma.auditLog.deleteMany();
+    await rawPrisma.auditHead.deleteMany();
+    await rawPrisma.student.deleteMany();
     resetHeadCache();
   });
 

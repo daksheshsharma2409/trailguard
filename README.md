@@ -64,7 +64,7 @@ And a fourth failure appears when teams try to bridge security and auditing: **t
 | Flag direct Prisma writes that bypass the audited client (`AUD001`) | Catch writes made outside the scanned repository (other services, direct DB console) |
 | Record create/update/delete in a **tamper-evident** HMAC-SHA256 hash chain atomically with the business write | Claim to be tamper-**proof** without external sinks (see [Threat Model Summary](#7-audit-log-design--threat-model-summary)) |
 | Redact sensitive fields while still cryptographically proving *that* they changed (`[REDACTED:<tag>]`) | Audit read queries (planned as an opt-in extension for sensitive models) |
-| Detect divergence between declared static permissions and observed runtime logs (`drift`) | Support databases other than MySQL for the runtime audit log in v1 |
+| Detect divergence between declared static permissions and observed runtime logs (`drift`) | Support databases without serializable transactions for the runtime audit log in v1 |
 
 Principle used throughout: **unrecognized is not safe.** Anything the scanner cannot classify with high certainty is flagged as `unknown` or given low confidence—it is never silently counted as protection.
 
@@ -80,7 +80,7 @@ npm install trailguard
 npm install @prisma/client express
 ```
 
-Requires Node ≥ 18.18, Prisma ≥ 5, and MySQL 8 (for runtime audit logging).
+Requires Node ≥ 18.18, Prisma ≥ 5, and PostgreSQL 16 (for runtime audit logging).
 
 ### 3.2 Initialize configuration
 
@@ -340,7 +340,7 @@ export default defineConfig({
 
 ## 7. Audit log design + threat model summary
 
-`createAuditClient` builds on Prisma Client Extensions (`$extends`). When an audited model is modified, the following steps execute inside **one atomic MySQL transaction**:
+`createAuditClient` builds on Prisma Client Extensions (`$extends`). When an audited model is modified, the following steps execute inside **one atomic PostgreSQL transaction**:
 
 ```
 1. Fetch row state BEFORE mutation
@@ -361,7 +361,7 @@ export default defineConfig({
 
 | Attacker Capability | Detected? | Mechanism | Residual Risk |
 |---|---|---|---|
-| Modify an existing audit row in MySQL | ✅ YES | HMAC signature verification fails on that row; subsequent row's `prevHash` breaks. | None. Row corruption is identified to the exact sequence number. |
+| Modify an existing audit row in PostgreSQL | ✅ YES | HMAC signature verification fails on that row; subsequent row's `prevHash` breaks. | None. Row corruption is identified to the exact sequence number. |
 | Modify JSON convenience columns (`before`/`after`) | ✅ YES | Convenience columns are validated against the canonical `payload` column string. | None. |
 | Delete or reorder an audit row | ✅ YES | `seq` numbers are gapless and strictly sequential; `prevHash` chain breaks. | None. |
 | Modify a row and recompute hashes (DB access, no secret key) | ✅ YES | Attacker cannot forge valid HMAC-SHA256 signatures without `TRAILGUARD_KEY`. | None. Plain SHA-256 attacker script fails. |
@@ -403,14 +403,15 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     services:
-      mysql:
-        image: mysql:8.0
+      postgres:
+        image: postgres:16-alpine
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: trailguard_ci
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: root
+          POSTGRES_DB: trailguard_ci
         ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+          - 5432:5432
+        options: --health-cmd="pg_isready -U root -d trailguard_ci" --health-interval=3s --health-timeout=3s --health-retries=10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -420,7 +421,7 @@ jobs:
       - run: npm ci
       - run: npx trailguard verify --checkpoints ./trailguard-checkpoints.jsonl
         env:
-          DATABASE_URL: mysql://root:root@127.0.0.1:3306/trailguard_ci
+          DATABASE_URL: postgresql://root:root@127.0.0.1:5432/trailguard_ci?schema=public
           TRAILGUARD_KEY: ${{ secrets.TRAILGUARD_KEY }}
 ```
 
@@ -623,7 +624,7 @@ npx trailguard scan --fail-on high            # Exits 0, clean
 # 3. Verify legitimate chain
 npx trailguard verify                         # ✔ valid
 
-# 4. Simulate tampering (direct UPDATE in MySQL)
+# 4. Simulate tampering (direct UPDATE in PostgreSQL)
 #    UPDATE trailguard_audit_log SET after = '...' WHERE seq = 2;
 npx trailguard verify                         # ✖ broken: HASH_MISMATCH
 
@@ -646,9 +647,9 @@ See [`docs/DEMO.md`](./docs/DEMO.md) for the detailed step-by-step transcript.
 git clone https://github.com/daksheshsharma2409/trailguard.git
 cd trailguard
 npm install
-docker compose up -d                          # Starts local MySQL 8 test instance
+docker compose up -d                          # Starts local PostgreSQL 16 test instance
 npm run lint && npm run typecheck && npm test
-TEST_DATABASE_URL=mysql://root:root@localhost:3307/trailguard_test npm run test:int
+TEST_DATABASE_URL=postgresql://root:root@localhost:5432/trailguard_test?schema=public npm run test:int
 ```
 
 - Tasks and milestones are tracked in [`tasks.md`](./tasks.md).

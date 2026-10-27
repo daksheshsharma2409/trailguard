@@ -9,10 +9,10 @@ This document provides a complete human walkthrough of the Trailguard end-to-end
 
 ## 0. Prerequisites & Setup
 
-Ensure the MySQL database container is running and initialize the demo database schema:
+Ensure the PostgreSQL database container is running and initialize the demo database schema:
 
 ```bash
-# Start MySQL in Docker (if not already running)
+# Start PostgreSQL in Docker (if not already running)
 docker compose up -d
 
 # Build Trailguard
@@ -213,7 +213,7 @@ Trailguard verifies:
 Simulate an attacker who obtains database write access (e.g. SQL injection or rogue DBA) and alters a past record to modify marks:
 
 ```bash
-mysql -h 127.0.0.1 -P 3307 -u root -proot trailguard_test -e \
+docker exec -i trailguard-postgres psql -U root -d trailguard_test -c \
   "UPDATE trailguard_audit_log SET payload = '{\"tampered\":true}' WHERE seq = 2;"
 ```
 
@@ -282,7 +282,7 @@ Create an off-site checkpoint file representing a signed head state sent to cold
 npx tsx -e "
 import { PrismaClient } from './test/integration/generated/index.js';
 import { createCheckpoint, fileSink } from './src/runtime/checkpoint.js';
-const prisma = new PrismaClient({ datasources: { db: { url: process.env.TEST_DATABASE_URL || 'mysql://root:root@localhost:3307/trailguard_test' } } });
+const prisma = new PrismaClient({ datasources: { db: { url: process.env.TEST_DATABASE_URL || 'postgresql://root:root@localhost:5432/trailguard_test?schema=public' } } });
 const cp = createCheckpoint({ seq: head.lastSeq, hash: head.lastHash }, process.env.TRAILGUARD_KEY || 'demo-trailguard-master-key-32chars!!', 'k1');
 await fileSink('demo-checkpoints.jsonl')(cp);
 console.log('Checkpoint saved to demo-checkpoints.jsonl for seq', head.lastSeq.toString());

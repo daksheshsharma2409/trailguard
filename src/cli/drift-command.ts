@@ -2,7 +2,7 @@
  * Core implementation of `trailguard drift` CLI command.
  *
  * Compares static RBAC access matrix derived from Express routes against
- * actual AuditLog behavior observed in MySQL.
+ * actual AuditLog behavior observed in PostgreSQL.
  *
  * @see context.md §8, tasks.md T4.5, T5.3
  */

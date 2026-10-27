@@ -4,13 +4,13 @@ _Last updated: 2026-10-26_
 
 ## 1. System Overview
 
-`trailguard` is a dual-purpose TypeScript package designed specifically for the **Express + Prisma + MySQL** stack:
+`trailguard` is a dual-purpose TypeScript package designed specifically for the **Express + Prisma + PostgreSQL** stack:
 
 1. **Static Analysis Scanner (`trailguard/scan` + CLI `trailguard scan`):**
    A developer-time and CI AST analyzer that inspects route declarations, middleware chains, and Prisma schemas without booting the application or connecting to a database. It derives an access matrix and flags unprotected mutating routes, missing role checks, and direct Prisma writes that bypass the audit client.
 
 2. **Tamper-Evident Runtime Audit Log (`trailguard` + CLI `trailguard verify`):**
-   An HMAC-SHA256 hash-chained transaction logger implemented via Prisma Client Extensions (`$extends`). Mutations on audited models atomically record pre-images, post-images, diffs, and cryptographic hash chains under MySQL row locks (`SELECT ... FOR UPDATE`), with external signed checkpoints to prevent truncation.
+   An HMAC-SHA256 hash-chained transaction logger implemented via Prisma Client Extensions (`$extends`). Mutations on audited models atomically record pre-images, post-images, diffs, and cryptographic hash chains under PostgreSQL row locks (`SELECT ... FOR UPDATE`), with external signed checkpoints to prevent truncation.
 
 3. **Verification & Drift Engine (`trailguard drift` + `trailguard ci`):**
    The bridge comparing statically declared permissions against observed runtime audit records to surface operational permission drift.
@@ -100,7 +100,7 @@ The codebase is organized into modular layers with strict separation between run
   - `aud002`: Unguarded `auditRouter` mount.
   - `aud003`: Raw SQL write to audited model.
 - **`report/`:** Renders findings and matrices into Markdown (`formatMarkdownReport`), JSON (`formatJsonReport`), and SARIF v2.1.0 (`formatSarifReport`).
-- **`drift.ts`:** Evaluates MySQL audit log entries against the static RBAC matrix to detect unauthorized mutations (`DRIFT001`), missing actor roles (`DRIFT002`), and ownership violations (`DRIFT003`).
+- **`drift.ts`:** Evaluates PostgreSQL audit log entries against the static RBAC matrix to detect unauthorized mutations (`DRIFT001`), missing actor roles (`DRIFT002`), and ownership violations (`DRIFT003`).
 - **`scan.ts`:** Top-level orchestration function tying project loading, schema parsing, mount resolution, rule execution, and reporting together.
 
 ### 3.4 `src/runtime/` — Runtime Audit Logging & Integrity

@@ -22,9 +22,9 @@ describe('Integration: auditRouter', () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_log');
-    await prisma.$executeRawUnsafe('DELETE FROM trailguard_audit_head');
-    await prisma.$executeRawUnsafe('DELETE FROM Student');
+    await prisma.auditLog.deleteMany();
+    await prisma.auditHead.deleteMany();
+    await prisma.student.deleteMany();
     resetHeadCache();
   });
 
@@ -305,9 +305,10 @@ describe('Integration: auditRouter', () => {
     );
 
     // Tamper with payload in DB
-    await prisma.$executeRawUnsafe(
-      `UPDATE trailguard_audit_log SET payload = '{"tampered":true}' WHERE seq = 1`,
-    );
+    await prisma.auditLog.update({
+      where: { seq: 1n },
+      data: { payload: '{"tampered":true}' },
+    });
 
     const app = createTestApp();
 
