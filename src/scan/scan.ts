@@ -150,7 +150,7 @@ export async function scan(options: ScanOptions = {}): Promise<ScanOutput> {
 
   // 10. Assemble ScanResult
   const scanResult: ScanResult = {
-    version: '0.1.0',
+    version: '0.1.1',
     routes: routeNodes,
     findings,
     matrix,
