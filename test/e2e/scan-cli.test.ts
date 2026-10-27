@@ -163,7 +163,7 @@ describe('scan() programmatic API', () => {
     const configPath = path.join(getFixturePath('clean'), 'trailguard.config.ts');
     const output = await scan({ config: configPath });
 
-    expect(output.version).toBe('0.1.1');
+    expect(output.version).toBe('0.1.2');
     expect(output.exitCode).toBe(0);
     expect(output.thresholdExceeded).toBe(false);
     expect(output.findings.length).toBe(0);
