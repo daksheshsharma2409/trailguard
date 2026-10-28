@@ -1,0 +1,70 @@
+name: Bug report
+description: Something isn't working, or the scanner gave a wrong result
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For security vulnerabilities, please do **not** use this form. See SECURITY.md.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is affected?
+      options:
+        - scan (static analysis)
+        - verify / audit chain
+        - audited Prisma client
+        - auditRouter
+        - drift
+        - CLI / config
+        - docs
+        - not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you run, and what did you see?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps or minimal example to reproduce
+      description: For scanner issues, a small code snippet (routes and middleware) helps most.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Your trailguard.config.ts
+      description: Remove anything private.
+      render: ts
+  - type: input
+    id: version
+    attributes:
+      label: trailguard version
+      placeholder: "0.1.2 (run: npx trailguard --version)"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "Node 20, macOS, Prisma 7, PostgreSQL 16"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output or error messages
+      render: shell
