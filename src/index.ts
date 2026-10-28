@@ -91,3 +91,5 @@ export {
   type ExportPrismaClient,
 } from './runtime/export.js';
 
+export { getPackageVersion } from './core/version.js';
+

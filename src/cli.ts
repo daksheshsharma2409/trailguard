@@ -7,9 +7,6 @@
  */
 
 import { Command } from 'commander';
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
-import * as path from 'node:path';
 import { scan } from './scan/index.js';
 import { runVerifyCommand, type VerifyCommandOptions } from './cli/verify-command.js';
 import { runDriftCommand, type DriftCommandOptions } from './cli/drift-command.js';
@@ -17,31 +14,15 @@ import { runCiCommand, type CiCommandOptions } from './cli/ci-command.js';
 import { runExportCommand, type ExportCommandOptions } from './cli/export-command.js';
 import { runCheckpointCommand, type CheckpointCommandOptions } from './cli/checkpoint-command.js';
 import { runInitCommand, type InitCommandOptions } from './cli/init-command.js';
+import { getPackageVersion } from './core/version.js';
 import type { Risk } from './core/types.js';
-
-// Resolve package.json for the version string
-const _require = createRequire(import.meta.url);
-const _dirname = path.dirname(fileURLToPath(import.meta.url));
-// package.json is one directory up from dist/ when built, or two up from src/
-let pkg: { version: string } = { version: '0.0.0' };
-try {
-  // Works both from dist/ (built) and src/ (ts-node)
-  pkg = _require(path.join(_dirname, '..', 'package.json')) as { version: string };
-} catch {
-  // fallback: try same dir
-  try {
-    pkg = _require(path.join(_dirname, 'package.json')) as { version: string };
-  } catch {
-    // ignore — version will be 0.0.0
-  }
-}
 
 const program = new Command();
 
 program
   .name('trailguard')
   .description('Declare, enforce, prove. Static RBAC scanner + tamper-evident audit log.')
-  .version(pkg.version, '-v, --version', 'Print version and exit');
+  .version(getPackageVersion(), '-v, --version', 'Print version and exit');
 
 interface CliScanOptions {
   config?: string | undefined;

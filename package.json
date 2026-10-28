@@ -1,6 +1,6 @@
 {
   "name": "trailguard",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Declare, enforce, prove. Static RBAC/audit-coverage scanner plus a tamper-evident, HMAC-chained audit log for Express + Prisma + PostgreSQL.",
   "type": "module",
   "license": "MIT",

@@ -19,6 +19,7 @@ export {
   ScanConfigError,
   ScanParseError,
 } from '../core/errors.js';
+export { getPackageVersion } from '../core/version.js';
 
 // Static types
 export type {

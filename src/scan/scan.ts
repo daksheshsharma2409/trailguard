@@ -30,6 +30,7 @@ import { deriveMatrix } from './matrix.js';
 import { formatMarkdownReport } from './report/markdown.js';
 import { formatJsonReport } from './report/json.js';
 import { formatSarifReport } from './report/sarif.js';
+import { getPackageVersion } from '../core/version.js';
 import type { Risk, ScanResult } from '../core/types.js';
 
 export interface ScanOptions {
@@ -150,7 +151,7 @@ export async function scan(options: ScanOptions = {}): Promise<ScanOutput> {
 
   // 10. Assemble ScanResult
   const scanResult: ScanResult = {
-    version: '0.1.2',
+    version: getPackageVersion(),
     routes: routeNodes,
     findings,
     matrix,

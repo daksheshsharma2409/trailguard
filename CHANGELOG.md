@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.5] - 2026-10-28
+
+### Fixed
+- Fixed hardcoded version in static scan orchestrator (`scanResult.version`), CLI banner, and reports: now dynamically resolves from `package.json` across all interfaces.
+- Fixed outdated schema snippet types in `trailguard init` (`@db.LongText` -> `@db.Text`, `@db.DateTime` -> `@db.Timestamp(3)`).
+
+### Added
+- Added comprehensive section-by-section documentation and parameter comments to the starter `trailguard.config.ts` scaffolded by `trailguard init`.
+
 ## [0.1.4] - 2026-10-28
 
 ### Changed
@@ -53,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.1.5]: https://github.com/daksheshsharma2409/trailguard/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/daksheshsharma2409/trailguard/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/daksheshsharma2409/trailguard/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/daksheshsharma2409/trailguard/compare/v0.1.1...v0.1.2
