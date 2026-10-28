@@ -1,13 +1,60 @@
 # trailguard
 
-> **Declare, enforce, prove.**
-> Statically audit which Express routes are protected, record every Prisma write in a tamper-evident log, then cross-check what your code *declares* against what *actually happened*.
+**Find unprotected routes in your Express API, and keep a log of every database change that can't be secretly edited.**
+For Express + Prisma + MySQL apps. Works as a CLI and as a library.
 
-[![CI](https://img.shields.io/badge/ci-passing-brightgreen)](#) [![node](https://img.shields.io/badge/node-%3E%3D18.18-blue)](#) [![license](https://img.shields.io/badge/license-MIT-lightgrey)](#license)
+[![CI](https://github.com/daksheshsharma2409/trailguard/actions/workflows/ci.yml/badge.svg)](https://github.com/daksheshsharma2409/trailguard/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/trailguard)](https://www.npmjs.com/package/trailguard)
+[![license](https://img.shields.io/npm/l/trailguard)](./LICENSE)
 
-Your tests prove routes work. `trailguard` proves they're **protected**, records every change to your data in a **tamper-evident** log, and tells you when reality **drifts** from your access-control design.
+## What is it for?
 
----
+trailguard answers three questions most backends can't answer today:
+
+| Question | What you run |
+|---|---|
+| **"Did I forget to protect any route?"** (no login, no role check) | `npx trailguard scan` |
+| **"Who changed this record, and has the history been tampered with?"** | the audited Prisma client + `npx trailguard verify` |
+| **"Is anyone doing things my access rules don't allow?"** | `npx trailguard drift` |
+
+## See it in 30 seconds
+
+This route has a bug. Anyone can delete any student, and nothing records who did it:
+
+```ts
+app.delete('/api/students/:id', async (req, res) => {
+  await prisma.student.delete({ where: { id: req.params.id } });
+  res.sendStatus(204);
+});
+```
+
+`npx trailguard scan` reports it:
+
+```text
+HIGH  RBAC001  DELETE /api/students/:id    no authentication middleware
+HIGH  AUD001   src/routes/students.ts:12   prisma.student.delete bypasses the audited client
+```
+
+Fix it by adding `authenticate`, `requireRole('ADMIN')` and `auditClient`. After that:
+- the scan passes,
+- every change is saved with who made it, the old value and the new value (passwords hidden),
+- `npx trailguard verify` proves nobody edited that history afterwards.
+
+## Try it
+
+```bash
+npm install trailguard
+npx trailguard init     # creates trailguard.config.ts
+npx trailguard scan     # no database needed
+```
+
+## Who is it for?
+Backend developers using Express and Prisma, especially apps where accountability matters (college, healthcare, finance, admin panels), and teams that want these checks in CI.
+
+## Words used in this README
+- **RBAC**: access rules by role, e.g. only ADMIN can delete users.
+- **Tamper-evident**: edits to the log can't be prevented, but they are always detected.
+- **Drift**: what actually happened differs from what your access rules say should happen.
 
 ## Table of contents
 
