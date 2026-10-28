@@ -58,7 +58,7 @@ Backend developers using Express and Prisma, especially apps where accountabilit
 
 ## Table of contents
 
-1. [The problem + 5-line vulnerable example](#1-the-problem--5-line-vulnerable-example)
+1. [Why authorization and audit logs must connect](#1-why-authorization-and-audit-logs-must-connect)
 2. [What trailguard does (and doesn't)](#2-what-trailguard-does-and-doesnt)
 3. [Quickstart (static + runtime)](#3-quickstart-static--runtime)
 4. [Rules](#4-rules)
@@ -78,27 +78,15 @@ Backend developers using Express and Prisma, especially apps where accountabilit
 
 ---
 
-## 1. The problem + 5-line vulnerable example
+## 1. Why authorization and audit logs must connect
 
-Three things routinely fail in real-world Express + Prisma backends:
+In modern Node.js backends, authorization policy and audit trails are treated as completely disconnected systems:
 
-1. **A forgotten middleware:** A developer adds a route and forgets the guard. Code review overlooks it.
-2. **Auth without authorization:** `authenticate` runs on every route, so everything is "logged in", but nothing checks *who* may perform *which* mutation on *what* resource.
-3. **No trustworthy record:** When an audit occurs, nobody can prove *who* changed a record or whether database rows were modified after the fact.
+1. **Authorization is enforced at the route boundary** (Express middleware like `passport` or custom JWT guards), but nothing statically verifies that every mutating endpoint actually has guards applied across large codebases.
+2. **Audit logging is deferred to database hooks or ORM extensions**, but these hooks lack HTTP request context (actor role, IP, request ID), write unkeyed rows that anyone with database credentials can silently tamper with, and cannot prevent direct un-audited ORM writes (`prisma.user.delete()`).
+3. **Declared policy drifts from runtime reality:** The code states *"only ADMIN may delete students"*, but a subtle handler bypass or permission leak allows another role to write. Because access rules and audit records never speak to each other, this drift goes unnoticed until an external compliance audit.
 
-Here is the classic 5-line failure:
-
-```ts
-// 5-line vulnerable Express + Prisma example: missing authentication, no role check, direct un-audited write
-app.delete('/api/students/:id', async (req, res) => {
-  const deleted = await prisma.student.delete({ where: { id: req.params.id } });
-  res.json(deleted);
-});
-```
-
-And a fourth failure appears when teams try to bridge security and auditing: **the code says "only ADMIN deletes users", but the database shows a TEACHER deleted one last Tuesday.** Nothing connects static authorization policy with runtime execution.
-
-`trailguard` is built to close all four gaps.
+`trailguard` bridges this gap by unifying static AST inspection, an atomic cryptographic hash chain at runtime, and automated drift verification.
 
 ---
 
@@ -119,7 +107,9 @@ Principle used throughout: **unrecognized is not safe.** Anything the scanner ca
 
 ## 3. Quickstart (static + runtime)
 
-### 3.1 Install
+### 3.1 Install & peer dependencies
+
+If you already ran the 3-step [Try it](#try-it) above, install your peer dependencies:
 
 ```bash
 npm install trailguard
@@ -169,33 +159,33 @@ Copy the schema declarations from `prisma/trailguard.prisma` into your project's
 ```prisma
 model AuditLog {
   seq         BigInt   @id
-  timestamp   DateTime @default(now())
-  model       String   @db.VarChar(64)
+  model       String   @db.VarChar(191)
   recordId    String   @db.VarChar(191)
   action      String   @db.VarChar(16)
   actorId     String?  @db.VarChar(191)
   actorRole   String?  @db.VarChar(64)
   requestId   String?  @db.VarChar(64)
-  ip          String?  @db.VarChar(45)
-  userAgent   String?  @db.VarChar(255)
+  ipAddress   String?  @db.VarChar(64)
+  userAgent   String?  @db.VarChar(512)
+  payload     String   @db.Text
   before      Json?
   after       Json?
   diff        Json?
-  payload     String   @db.LongText
   prevHash    String   @db.Char(64)
-  hash        String   @db.Char(64)
+  hash        String   @unique @db.Char(64)
+  keyId       String   @db.VarChar(32)
+  createdAt   DateTime @default(now()) @db.Timestamp(3)
 
   @@index([model, recordId])
-  @@index([timestamp])
   @@index([actorId])
+  @@index([createdAt])
   @@map("trailguard_audit_log")
 }
 
 model AuditHead {
-  id        Int      @id @default(1)
-  lastSeq   BigInt   @default(0)
-  lastHash  String   @default("0000000000000000000000000000000000000000000000000000000000000000") @db.Char(64)
-  updatedAt DateTime @updatedAt
+  id        Int    @id
+  lastSeq   BigInt
+  lastHash  String @db.Char(64)
 
   @@map("trailguard_audit_head")
 }
@@ -208,6 +198,8 @@ npx prisma migrate dev --name add_trailguard
 ```
 
 ### 3.4 Run static scan
+
+Run the AST scanner across your routes (zero database connection required):
 
 ```bash
 npx trailguard scan --fail-on high
