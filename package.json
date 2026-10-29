@@ -1,10 +1,18 @@
 {
   "name": "trailguard",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Declare, enforce, prove. Static RBAC/audit-coverage scanner plus a tamper-evident, HMAC-chained audit log for Express + Prisma + PostgreSQL.",
   "type": "module",
   "license": "MIT",
   "author": "Dakshesh Sharma",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daksheshsharma2409/trailguard.git"
+  },
+  "homepage": "https://github.com/daksheshsharma2409/trailguard#readme",
+  "bugs": {
+    "url": "https://github.com/daksheshsharma2409/trailguard/issues"
+  },
   "keywords": [
     "express",
     "prisma",

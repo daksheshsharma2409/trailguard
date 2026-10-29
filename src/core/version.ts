@@ -42,5 +42,5 @@ export function getPackageVersion(): string {
   }
 
   // Fallback version if package.json cannot be read
-  return '0.1.4';
+  return '0.1.6';
 }

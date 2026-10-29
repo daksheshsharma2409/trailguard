@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.6] - 2026-10-29
+
+### Added
+- Added `repository`, `homepage`, and `bugs` metadata to `package.json` linking the npm package to GitHub.
+- Added project community health files and templates (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `.github/`).
+
 ## [0.1.5] - 2026-10-28
 
 ### Fixed
@@ -62,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.1.6]: https://github.com/daksheshsharma2409/trailguard/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/daksheshsharma2409/trailguard/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/daksheshsharma2409/trailguard/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/daksheshsharma2409/trailguard/compare/v0.1.2...v0.1.3

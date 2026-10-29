@@ -13,7 +13,7 @@ trailguard is a security-related tool, so we take vulnerability reports seriousl
 
 Please **do not open a public issue** for security problems.
 
-Use GitHub's private reporting: go to the repository's **Security** tab → **Report a vulnerability**. If that isn't available, email **your-email@example.com** (replace with your real contact).
+Use GitHub's private reporting: go to the repository's **Security** tab → **Report a vulnerability**. If that isn't available, email **daksheshsharmadev@gmail.com**.
 
 Include:
 - what the problem is and which version you used,
